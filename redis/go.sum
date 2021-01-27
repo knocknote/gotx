@@ -2,3 +2,5 @@ github.com/go-redis/redis v6.15.9+incompatible h1:K0pv1D7EQUjfyoMql+r/jZqCLizCGK
 github.com/go-redis/redis v6.15.9+incompatible/go.mod h1:NAIEuMOZ/fxfXJIrKDQDz8wamY7mA7PouImQ2Jvg6kA=
 github.com/knocknote/gotx v0.0.0-20210127014401-9c0af1a7be65 h1:A4vbU85ujgK8z4LcGTTJz1logvwcseyN2PNWCwjr6Vk=
 github.com/knocknote/gotx v0.0.0-20210127014401-9c0af1a7be65/go.mod h1:zw/0+kePKu2wZCeFYz2DQAINg5382OiFB9Jwqp78E7w=
+github.com/knocknote/gotx v0.0.0-20210127040726-eb482dd55088 h1:hvhXMxYjPpj4t5FkIemosdxRdAYjVhEk/RvC6qp6V5U=
+github.com/knocknote/gotx v0.0.0-20210127040726-eb482dd55088/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
