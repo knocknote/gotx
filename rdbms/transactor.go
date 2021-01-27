@@ -11,17 +11,17 @@ type contextCurrentTransactionKey string
 
 const currentTransactionKey contextCurrentTransactionKey = "current_rdb_transaction"
 
-type DefaultTransactionProvider struct {
+type DefaultClientProvider struct {
 	connectionProvider ConnectionProvider
 }
 
-func NewDefaultTransactionProvider(connectionProvider ConnectionProvider) *DefaultTransactionProvider {
-	return &DefaultTransactionProvider{
+func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
+	return &DefaultClientProvider{
 		connectionProvider: connectionProvider,
 	}
 }
 
-func (p *DefaultTransactionProvider) CurrentTransaction(ctx context.Context) Conn {
+func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Conn {
 	transaction := ctx.Value(currentTransactionKey)
 	if transaction == nil {
 		return p.connectionProvider.CurrentConnection(ctx)

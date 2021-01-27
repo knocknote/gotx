@@ -10,8 +10,8 @@ type ConnectionProvider interface {
 	CurrentConnection(ctx context.Context) *redis.Client
 }
 
-type TransactionProvider interface {
-	CurrentTransaction(ctx context.Context) (reader redis.Cmdable, writer redis.Cmdable)
+type ClientProvider interface {
+	CurrentClient(ctx context.Context) (reader redis.Cmdable, writer redis.Cmdable)
 }
 
 // get redis client from field

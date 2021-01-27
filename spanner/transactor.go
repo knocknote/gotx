@@ -13,23 +13,23 @@ type contextCurrentTransactionKey string
 
 const currentTransactionKey contextCurrentTransactionKey = "current_spanner_transaction"
 
-type DefaultTransactionProvider struct {
+type DefaultClientProvider struct {
 	connectionProvider ConnectionProvider
 	client             *spanner.Client
 }
 
-func NewDefaultTransactionProvider(connectionProvider ConnectionProvider) *DefaultTransactionProvider {
-	return &DefaultTransactionProvider{
+func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
+	return &DefaultClientProvider{
 		connectionProvider: connectionProvider,
 	}
 }
 
-func (p *DefaultTransactionProvider) CurrentTransaction(ctx context.Context) TxClient {
+func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
 	transaction := ctx.Value(currentTransactionKey)
 	if transaction == nil {
 		return NewDefaultTxClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
 	}
-	return transaction.(TxClient)
+	return transaction.(Client)
 }
 
 type Transactor struct {

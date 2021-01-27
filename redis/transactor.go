@@ -12,17 +12,17 @@ type contextCurrentTransactionKey string
 
 const currentTransactionKey contextCurrentTransactionKey = "current_rdb_transaction"
 
-type DefaultTransactionProvider struct {
+type DefaultClientProvider struct {
 	connectionProvider ConnectionProvider
 }
 
-func NewDefaultTransactionProvider(connectionProvider ConnectionProvider) *DefaultTransactionProvider {
-	return &DefaultTransactionProvider{
+func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
+	return &DefaultClientProvider{
 		connectionProvider: connectionProvider,
 	}
 }
 
-func (p *DefaultTransactionProvider) CurrentTransaction(ctx context.Context) (reader redis.Cmdable, writer redis.Cmdable) {
+func (p *DefaultClientProvider) CurrentTransaction(ctx context.Context) (reader redis.Cmdable, writer redis.Cmdable) {
 	client := p.connectionProvider.CurrentConnection(ctx)
 	transaction := ctx.Value(currentTransactionKey)
 	if transaction == nil {

@@ -10,8 +10,8 @@ type ConnectionProvider interface {
 	CurrentConnection(ctx context.Context) *spanner.Client
 }
 
-type TransactionProvider interface {
-	CurrentTransaction(ctx context.Context) TxClient
+type ClientProvider interface {
+	CurrentClient(ctx context.Context) Client
 }
 
 type DefaultConnectionProvider struct {

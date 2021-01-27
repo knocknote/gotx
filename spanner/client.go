@@ -16,7 +16,7 @@ type Reader interface {
 	ReadRow(ctx context.Context, table string, key spanner.Key, columns []string) (*spanner.Row, error)
 }
 
-type TxClient interface {
+type Client interface {
 	Reader
 	WriteMutation(context.Context, ...*spanner.Mutation) error
 }
