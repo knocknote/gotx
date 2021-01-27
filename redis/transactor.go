@@ -35,8 +35,8 @@ type Transactor struct {
 	provider ConnectionProvider
 }
 
-func NewTransactor(provider ConnectionProvider) Transactor {
-	return Transactor{
+func NewTransactor(provider ConnectionProvider) *Transactor {
+	return &Transactor{
 		provider: provider,
 	}
 }
