@@ -18,8 +18,10 @@ type DefaultConnectionProvider struct {
 	client *spanner.Client
 }
 
-func NewDefaultConnectionProvider() *DefaultTransactionProvider {
-	return &DefaultTransactionProvider{}
+func NewDefaultConnectionProvider(client *spanner.Client) *DefaultTransactionProvider {
+	return &DefaultTransactionProvider{
+		client: client,
+	}
 }
 
 func (p *DefaultConnectionProvider) CurrentConnection(_ context.Context) *spanner.Client {
