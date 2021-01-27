@@ -9,33 +9,56 @@ import (
 	"cloud.google.com/go/spanner"
 )
 
-type Transactor struct {
-	provider TransactionProvider
+type contextCurrentTransactionKey string
+
+const currentTransactionKey contextCurrentTransactionKey = "current_spanner_transaction"
+
+type DefaultTransactionProvider struct {
+	connectionProvider ConnectionProvider
+	client             *spanner.Client
 }
 
-func NewTransactor(provider TransactionProvider) *Transactor {
+func NewDefaultTransactionProvider(connectionProvider ConnectionProvider) *DefaultTransactionProvider {
+	return &DefaultTransactionProvider{
+		connectionProvider: connectionProvider,
+	}
+}
+
+func (p *DefaultTransactionProvider) CurrentTransaction(ctx context.Context) TxClient {
+	transaction := ctx.Value(currentTransactionKey)
+	if transaction == nil {
+		return NewDefaultTxClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
+	}
+	return transaction.(TxClient)
+}
+
+type Transactor struct {
+	provider ConnectionProvider
+}
+
+func NewTransactor(provider ConnectionProvider) *Transactor {
 	return &Transactor{
 		provider: provider,
 	}
 }
 
 func (t *Transactor) Required(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
-	if hasTransaction(ctx) {
+	if ctx.Value(currentTransactionKey) != nil {
 		return fn(ctx)
 	}
-	return t.requiresNew(ctx, fn, options...)
+	return t.RequiresNew(ctx, fn, options...)
 }
 
 var rollbackOnly = errors.New("rollback only transaction")
 
-func (t *Transactor) requiresNew(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
+func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
 
 	spannerConfig := newConfig()
 	for _, opt := range options {
 		opt.Apply(&spannerConfig)
 	}
 
-	spannerClient := t.provider.currentConnection(ctx)
+	spannerClient := t.provider.CurrentConnection(ctx)
 	if spannerConfig.ReadOnly {
 		txn := spannerClient.ReadOnlyTransaction()
 
@@ -48,11 +71,11 @@ func (t *Transactor) requiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 		}
 		defer txn.Close()
 		executor := NewDefaultTxClient(spannerClient, nil, txn)
-		return fn(withCurrentTransaction(ctx, executor))
+		return fn(context.WithValue(ctx, currentTransactionKey, executor))
 	}
 	_, err := spannerClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		executor := NewDefaultTxClient(spannerClient, txn, nil)
-		err := fn(withCurrentTransaction(ctx, executor))
+		err := fn(context.WithValue(ctx, currentTransactionKey, executor))
 		if err != nil {
 			return err
 		}
