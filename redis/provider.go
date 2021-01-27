@@ -16,9 +16,15 @@ type TransactionProvider interface {
 
 // get redis client from field
 type DefaultConnectionProvider struct {
-	conn *redis.Client
+	client *redis.Client
+}
+
+func NewDefaultConnectionProvider(client *redis.Client) *DefaultConnectionProvider {
+	return &DefaultConnectionProvider{
+		client: client,
+	}
 }
 
 func (p *DefaultConnectionProvider) CurrentConnection(_ context.Context) *redis.Client {
-	return p.conn
+	return p.client
 }
