@@ -22,7 +22,7 @@ func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultCli
 	}
 }
 
-func (p *DefaultClientProvider) CurrentTransaction(ctx context.Context) (reader redis.Cmdable, writer redis.Cmdable) {
+func (p *DefaultClientProvider) CurrentClient(ctx context.Context) (reader redis.Cmdable, writer redis.Cmdable) {
 	client := p.connectionProvider.CurrentConnection(ctx)
 	transaction := ctx.Value(currentTransactionKey)
 	if transaction == nil {
