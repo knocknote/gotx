@@ -18,7 +18,8 @@ type Reader interface {
 
 type Client interface {
 	Reader
-	WriteMutation(context.Context, ...*spanner.Mutation) error
+	ApplyOrLazyBufferWrite(context.Context, ...*spanner.Mutation) error
+	ApplyOrBufferWrite(context.Context, ...*spanner.Mutation) error
 }
 
 type DefaultTxClient struct {
