@@ -82,7 +82,7 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 		if spannerConfig.RollbackOnly {
 			return rollbackOnly
 		}
-		return executor.Flush(ctx)
+		return nil
 	})
 	// rollback only transaction
 	if err != nil && errors.Is(err, rollbackOnly) {
