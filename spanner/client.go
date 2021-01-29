@@ -18,7 +18,6 @@ type Reader interface {
 
 type Client interface {
 	Reader
-	ApplyOrLazyBufferWrite(context.Context, ...*spanner.Mutation) error
 	ApplyOrBufferWrite(context.Context, ...*spanner.Mutation) error
 }
 
@@ -26,7 +25,6 @@ type DefaultTxClient struct {
 	spannerClient *spanner.Client
 	txRW          *spanner.ReadWriteTransaction
 	txRO          *spanner.ReadOnlyTransaction
-	buffers       []*spanner.Mutation
 }
 
 func NewDefaultTxClient(client *spanner.Client, rw *spanner.ReadWriteTransaction, ro *spanner.ReadOnlyTransaction) *DefaultTxClient {
@@ -34,20 +32,7 @@ func NewDefaultTxClient(client *spanner.Client, rw *spanner.ReadWriteTransaction
 		spannerClient: client,
 		txRW:          rw,
 		txRO:          ro,
-		buffers:       make([]*spanner.Mutation, 0),
 	}
-}
-
-func (e *DefaultTxClient) ApplyOrLazyBufferWrite(ctx context.Context, data ...*spanner.Mutation) error {
-	if e.isInReadWriteTransaction() {
-		e.buffers = append(e.buffers, data...)
-		return nil
-	}
-	if e.isInReadOnlyTransaction() {
-		return errors.New("read only transaction doesn't support write operation")
-	}
-	_, err := e.spannerClient.Apply(ctx, e.buffers)
-	return err
 }
 
 func (e *DefaultTxClient) ApplyOrBufferWrite(ctx context.Context, data ...*spanner.Mutation) error {
@@ -57,7 +42,7 @@ func (e *DefaultTxClient) ApplyOrBufferWrite(ctx context.Context, data ...*spann
 	if e.isInReadOnlyTransaction() {
 		return errors.New("read only transaction doesn't support write operation")
 	}
-	_, err := e.spannerClient.Apply(ctx, e.buffers)
+	_, err := e.spannerClient.Apply(ctx, data)
 	return err
 }
 
@@ -101,14 +86,4 @@ func (e *DefaultTxClient) isInReadWriteTransaction() bool {
 
 func (e *DefaultTxClient) isInReadOnlyTransaction() bool {
 	return e.txRO != nil
-}
-
-func (e *DefaultTxClient) Flush(_ context.Context) error {
-	if e.isInReadWriteTransaction() && len(e.buffers) > 0 {
-		err := e.txRW.BufferWrite(e.buffers)
-		// clear is required for retrying transaction.
-		e.buffers = make([]*spanner.Mutation, 0)
-		return err
-	}
-	return nil
 }
