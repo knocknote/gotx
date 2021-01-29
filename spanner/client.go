@@ -37,10 +37,21 @@ func NewDefaultTxClient(client *spanner.Client, rw *spanner.ReadWriteTransaction
 	}
 }
 
-func (e *DefaultTxClient) WriteMutation(ctx context.Context, data ...*spanner.Mutation) error {
+func (e *DefaultTxClient) ApplyOrLazyBufferWrite(ctx context.Context, data ...*spanner.Mutation) error {
 	if e.isInReadWriteTransaction() {
 		e.buffers = append(e.buffers, data...)
 		return nil
+	}
+	if e.isInReadOnlyTransaction() {
+		return errors.New("read only transaction doesn't support write operation")
+	}
+	_, err := e.spannerClient.Apply(ctx, e.buffers)
+	return err
+}
+
+func (e *DefaultTxClient) ApplyOrBufferWrite(ctx context.Context, data ...*spanner.Mutation) error {
+	if e.isInReadWriteTransaction() {
+		return e.txRW.BufferWrite(data)
 	}
 	if e.isInReadOnlyTransaction() {
 		return errors.New("read only transaction doesn't support write operation")
@@ -88,11 +99,11 @@ func (e *DefaultTxClient) isInReadWriteTransaction() bool {
 }
 
 func (e *DefaultTxClient) isInReadOnlyTransaction() bool {
-	return e.txRW != nil
+	return e.txRO != nil
 }
 
 func (e *DefaultTxClient) Flush(_ context.Context) error {
-	if e.isInReadWriteTransaction() {
+	if e.isInReadWriteTransaction() && len(e.buffers) > 0 {
 		err := e.txRW.BufferWrite(e.buffers)
 		// clear is required for retrying transaction.
 		e.buffers = make([]*spanner.Mutation, 0)
