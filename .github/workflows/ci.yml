@@ -8,8 +8,8 @@ on:
   pull_request:
 
 jobs:
-  transactor-test:
-    name: test
+  rdbms-test:
+    name: rdbms test
     timeout-minutes: 30
     runs-on: ubuntu-latest
     services:
@@ -38,11 +38,60 @@ jobs:
         with:
           go-version: 1.15
       - name: lint
+        if: steps.rdbms.outputs.changed == 'true'
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.34.1
           args: --timeout=5m0s
       - name: install deps
+        if: steps.rdbms.outputs.changed == 'true'
         run: go mod download
-      - name: test
+      - name: rdbms test
+        if: steps.rdbms.outputs.changed == 'true'
+        run: go test -v .
+
+  redis-test:
+    name: redis test
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:5-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: checkout
+        if: github.event_name == 'push'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: setup
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.15
+      - name: lint
+        if: steps.redis.outputs.changed == 'true'
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: v1.34.1
+          working-directory: ./redis
+          args: --timeout=5m0s
+      - name: install deps
+        if: steps.redis.outputs.changed == 'true'
+        working-directory: ./redis
+        run: go mod download
+      - name: rdbms test
+        if: steps.redis.outputs.changed == 'true'
+        working-directory: ./redis
         run: go test -v .
