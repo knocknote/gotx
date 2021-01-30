@@ -56,11 +56,11 @@ jobs:
       - name: rdbms test
         run: go test -v .
       - name: redis lint
-          uses: golangci/golangci-lint-action@v2
-          with:
-            version: v1.34.1
-            working-directory: ./redis
-            args: --timeout=5m0s
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: v1.34.1
+          working-directory: ./redis
+          args: --timeout=5m0s
       - name: redis install deps
         working-directory: ./redis
         run: go mod download
