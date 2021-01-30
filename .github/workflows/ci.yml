@@ -8,11 +8,20 @@ on:
   pull_request:
 
 jobs:
-  rdbms-test:
+  test:
     name: rdbms test
     timeout-minutes: 30
     runs-on: ubuntu-latest
     services:
+      redis:
+        image: redis:5-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
       postgres:
         image: postgres:12.3
         env:
@@ -37,58 +46,24 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
-      - name: lint
+      - name: rdbms lint
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.34.1
           args: --timeout=5m0s
-      - name: install deps
+      - name: rdbms install deps
         run: go mod download
-      - name: test
+      - name: rdbms test
         run: go test -v .
-
-  redis-test:
-    name: redis test
-    timeout-minutes: 30
-    runs-on: ubuntu-latest
-    services:
-      redis:
-        image: redis:5-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - name: checkout
-        if: github.event_name == 'pull_request'
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
-      - name: checkout
-        if: github.event_name == 'push'
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: setup
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.15
-      - name: lint
-        if: steps.redis.outputs.changed == 'true'
-        uses: golangci/golangci-lint-action@v2
-        with:
-          version: v1.34.1
-          working-directory: ./redis
-          args: --timeout=5m0s
-      - name: install deps
-        if: steps.redis.outputs.changed == 'true'
+      - name: redis lint
+          uses: golangci/golangci-lint-action@v2
+          with:
+            version: v1.34.1
+            working-directory: ./redis
+            args: --timeout=5m0s
+      - name: redis install deps
         working-directory: ./redis
         run: go mod download
-      - name: test
-        if: steps.redis.outputs.changed == 'true'
+      - name: redis test
         working-directory: ./redis
         run: go test -v .
