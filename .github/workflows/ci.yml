@@ -9,7 +9,7 @@ on:
 
 jobs:
   base-test:
-    name: unit test
+    name: base test
     timeout-minutes: 30
     runs-on: ubuntu-latest
     services:
@@ -48,7 +48,7 @@ jobs:
         run: go test -v .
 
   redis-test:
-    name: unit test
+    name: redis test
     timeout-minutes: 30
     runs-on: ubuntu-latest
     services:
