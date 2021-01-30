@@ -8,7 +8,7 @@ on:
   pull_request:
 
 jobs:
-  test:
+  bse-test:
     name: unit test
     timeout-minutes: 30
     runs-on: ubuntu-latest
@@ -46,26 +46,56 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
-      - name: base lint
+      - name: lint
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.34.1
           args: --timeout=5m0s
-      - name: base install deps
+      - name: install deps
         run: go mod download
-      - name: base test
+      - name: test
         run: go test -v .
-      - name: redis setup
+
+  redis-test:
+    name: unit test
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:5-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: checkout
+        if: github.event_name == 'push'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: setup
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
+      - name: lint
+        uses: golangci/golangci-lint-action@v2
+        with:
           working-directory: ./redis
-      - name: redis lint
-        working-directory: ./redis
+          version: v1.34.1
+          args: --timeout=5m0s
         run: golangci-lint run .
-      - name: redis install deps
+      - name: install deps
         working-directory: ./redis
         run: go mod download
-      - name: redis test
+      - name: test
         working-directory: ./redis
         run: go test -v .
