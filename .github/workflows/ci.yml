@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    name: rdbms test
+    name: unit test
     timeout-minutes: 30
     runs-on: ubuntu-latest
     services:
@@ -46,20 +46,20 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.15
-      - name: rdbms lint
+      - name: base lint
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.34.1
           args: --timeout=5m0s
-      - name: rdbms install deps
+      - name: base install deps
         run: go mod download
-      - name: rdbms test
+      - name: base test
         run: go test -v .
       - name: redis lint
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.34.1
-          working-directory: ./redis
+          working-directory: redis
           args: --timeout=5m0s
       - name: redis install deps
         working-directory: ./redis
