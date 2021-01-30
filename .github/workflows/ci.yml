@@ -55,11 +55,16 @@ jobs:
         run: go mod download
       - name: base test
         run: go test -v .
+      - name: redis setup
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.15
+          working-directory: ./redis
       - name: redis lint
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.34.1
-          working-directory: redis
+          working-directory: ./redis
           args: --timeout=5m0s
       - name: redis install deps
         working-directory: ./redis
