@@ -43,6 +43,6 @@ jobs:
           version: v1.34.1
           args: --timeout=5m0s
       - name: install deps
-          run: go mod download
+        run: go mod download
       - name: test
-          run: go test -v .
+        run: go test -v .
