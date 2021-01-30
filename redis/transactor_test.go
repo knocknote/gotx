@@ -26,7 +26,7 @@ func TestCommit(t *testing.T) {
 
 	ctx := context.Background()
 	transactor, clientProvider := newTransactor()
-	key := "test_key"
+	key := "test_key1"
 	value := "test_value"
 	err := transactor.Required(ctx, func(ctx context.Context) error {
 		_, writer := clientProvider.CurrentClient(ctx)
@@ -52,7 +52,7 @@ func TestReadInTransaction(t *testing.T) {
 
 	ctx := context.Background()
 	transactor, clientProvider := newTransactor()
-	key := "test_key"
+	key := "test_key2"
 	value := "test_value"
 	_, w := clientProvider.CurrentClient(ctx)
 	_ = w.Set(key, "aaa", -1).Err()
@@ -96,7 +96,7 @@ func TestRollbackOnError(t *testing.T) {
 
 	ctx := context.Background()
 	transactor, clientProvider := newTransactor()
-	key := "test_key"
+	key := "test_key3"
 	value := "test_value"
 	err := transactor.Required(ctx, func(ctx context.Context) error {
 		_, writer := clientProvider.CurrentClient(ctx)
@@ -119,7 +119,7 @@ func TestRollbackOption(t *testing.T) {
 
 	ctx := context.Background()
 	transactor, clientProvider := newTransactor()
-	key := "test_key"
+	key := "test_key4"
 	value := "test_value"
 	err := transactor.Required(ctx, func(ctx context.Context) error {
 		_, writer := clientProvider.CurrentClient(ctx)
