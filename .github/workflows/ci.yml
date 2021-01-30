@@ -8,20 +8,11 @@ on:
   pull_request:
 
 jobs:
-  bse-test:
+  base-test:
     name: unit test
     timeout-minutes: 30
     runs-on: ubuntu-latest
     services:
-      redis:
-        image: redis:5-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
       postgres:
         image: postgres:12.3
         env:
@@ -92,7 +83,6 @@ jobs:
           working-directory: ./redis
           version: v1.34.1
           args: --timeout=5m0s
-        run: golangci-lint run .
       - name: install deps
         working-directory: ./redis
         run: go mod download
