@@ -16,7 +16,7 @@ jobs:
       postgres:
         image: postgres:12.3
         env:
-          POSTGRES_DB: postgres
+          POSTGRES_DB: testdb
           POSTGRES_PASSWORD: password
         ports:
           - 5432:5432
@@ -38,16 +38,13 @@ jobs:
         with:
           go-version: 1.15
       - name: lint
-        if: steps.rdbms.outputs.changed == 'true'
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.34.1
           args: --timeout=5m0s
       - name: install deps
-        if: steps.rdbms.outputs.changed == 'true'
         run: go mod download
-      - name: rdbms test
-        if: steps.rdbms.outputs.changed == 'true'
+      - name: test
         run: go test -v .
 
   redis-test:
@@ -91,7 +88,7 @@ jobs:
         if: steps.redis.outputs.changed == 'true'
         working-directory: ./redis
         run: go mod download
-      - name: rdbms test
+      - name: test
         if: steps.redis.outputs.changed == 'true'
         working-directory: ./redis
         run: go test -v .
