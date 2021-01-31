@@ -143,8 +143,8 @@ jobs:
         with:
           go-version: 1.15
       - name: install deps
-        working-directory: ./test
+        working-directory: ./.integration
         run: go mod download
       - name: test
-        working-directory: ./test
+        working-directory: ./.integration
         run: go test -v ./...
