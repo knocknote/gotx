@@ -1,4 +1,4 @@
-package rdbms
+package test
 
 import (
 	"context"
@@ -6,19 +6,21 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/knocknote/gotx/rdbms"
+
 	_ "github.com/lib/pq"
 )
 
-func newConnection() ConnectionProvider {
+func newConnection() rdbms.ConnectionProvider {
 	connection, err := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
 	if err != nil {
 		fmt.Printf("open error %v", err)
 		return nil
 	}
-	return NewDefaultConnectionProvider(connection)
+	return rdbms.NewDefaultConnectionProvider(connection)
 }
 
-func createTable(ctx context.Context, connectionProvider ConnectionProvider, name string) error {
+func createTable(ctx context.Context, connectionProvider rdbms.ConnectionProvider, name string) error {
 	connection := connectionProvider.CurrentConnection(ctx)
 	_, _ = connection.Exec(fmt.Sprintf("drop table %s", name))
 	_, err := connection.Exec(fmt.Sprintf("create table %s ( id varchar(10))", name))
@@ -29,8 +31,8 @@ func TestCommit(t *testing.T) {
 
 	ctx := context.Background()
 	connectionProvider := newConnection()
-	transactor := NewTransactor(connectionProvider)
-	clientProvider := NewDefaultClientProvider(connectionProvider)
+	transactor := rdbms.NewTransactor(connectionProvider)
+	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
 	if err := createTable(ctx, connectionProvider, "test1"); err != nil {
 		t.Error(err)
 		return
