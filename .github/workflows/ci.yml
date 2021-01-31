@@ -12,15 +12,6 @@ jobs:
     name: base test
     timeout-minutes: 30
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:12.3
-        env:
-          POSTGRES_DB: testdb
-          POSTGRES_PASSWORD: password
-        ports:
-          - 5432:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: checkout
         if: github.event_name == 'pull_request'
@@ -45,7 +36,7 @@ jobs:
       - name: install deps
         run: go mod download
       - name: test
-        run: go test -v .
+        run: go test -v ./...
 
   redis-test:
     name: redis test
@@ -89,3 +80,39 @@ jobs:
       - name: test
         working-directory: ./redis
         run: go test -v .
+
+  integration-test:
+    name: integration test
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:12.3
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - name: checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: checkout
+        if: github.event_name == 'push'
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: setup
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.15
+      - name: install deps
+        working-directory: ./test
+        run: go mod download
+      - name: test
+        working-directory: ./test
+        run: go test -v ./...

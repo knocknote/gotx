@@ -1,0 +1,9 @@
+github.com/go-redis/redis v6.15.9+incompatible/go.mod h1:NAIEuMOZ/fxfXJIrKDQDz8wamY7mA7PouImQ2Jvg6kA=
+github.com/knocknote/gotx v0.0.0-20210127010651-5ef566eb26b3 h1:mDqnQDD0Tifp/zAhXT+xHQrmCyIq1xrF9NjGX/xj/zc=
+github.com/knocknote/gotx v0.0.0-20210127010651-5ef566eb26b3/go.mod h1:KYuPcnpruCs9lyCiEvmdPg94/QyEmdXx5UZRknB1hPY=
+github.com/knocknote/gotx v0.0.0-20210130073813-357c899ca890 h1:6efSfLt1hYwk8G0LE5YqMENSVGtAwGkU896/Y9EE500=
+github.com/knocknote/gotx v0.0.0-20210130073813-357c899ca890/go.mod h1:01atn0IKdVnxAr848FApn/o2UXEZCMRWuEB8OXWNnHA=
+github.com/knocknote/gotx v0.0.0-20210131074318-584bee675e6f h1:COOj2HP0PdSTi93kWIB61cLQWpBc0f/0KLZ97/rd3KA=
+github.com/knocknote/gotx v0.0.0-20210131074318-584bee675e6f/go.mod h1:01atn0IKdVnxAr848FApn/o2UXEZCMRWuEB8OXWNnHA=
+github.com/lib/pq v1.9.0 h1:L8nSXQQzAYByakOFMTwpjRoHsMJklur4Gi59b6VivR8=
+github.com/lib/pq v1.9.0/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
