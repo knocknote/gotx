@@ -122,6 +122,8 @@ github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+o
 github.com/knocknote/gotx v0.0.0-20210127054107-16ce040112af/go.mod h1:fvF5FOHZzNvjfQdepWIdr3lEBpCHql5tCecqSdV0tBY=
 github.com/knocknote/gotx v0.0.0-20210131074318-584bee675e6f h1:COOj2HP0PdSTi93kWIB61cLQWpBc0f/0KLZ97/rd3KA=
 github.com/knocknote/gotx v0.0.0-20210131074318-584bee675e6f/go.mod h1:01atn0IKdVnxAr848FApn/o2UXEZCMRWuEB8OXWNnHA=
+github.com/knocknote/gotx v0.0.0-20210131103456-c185c00dec73 h1:mhZbubT4ahl6aRGKlmkErxklEpU7sNFiSeDeno4VIww=
+github.com/knocknote/gotx v0.0.0-20210131103456-c185c00dec73/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
 github.com/knocknote/gotx/redis v0.0.0-20210131074318-584bee675e6f h1:rW257U8dFAafaNnG8R8S6K6w9opTGMNV6mLGS3ERoKI=
 github.com/knocknote/gotx/redis v0.0.0-20210131074318-584bee675e6f/go.mod h1:Vzg+kLEuUhgKrUEzRFHO4yafZugs19DUoXKvZEOJrOs=
 github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=
