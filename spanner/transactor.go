@@ -15,7 +15,6 @@ const currentTransactionKey contextCurrentTransactionKey = "current_spanner_tran
 
 type DefaultClientProvider struct {
 	connectionProvider ConnectionProvider
-	client             *spanner.Client
 }
 
 func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
