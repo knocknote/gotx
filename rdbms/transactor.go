@@ -53,7 +53,7 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 	}
 	db := t.provider.CurrentConnection(ctx)
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{
-		ReadOnly: config.RollbackOnly,
+		ReadOnly: config.ReadOnly,
 	})
 	if err != nil {
 		return err
