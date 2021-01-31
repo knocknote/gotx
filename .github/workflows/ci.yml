@@ -126,6 +126,11 @@ jobs:
         ports:
           - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      spanner:
+        image: gcr.io/cloud-spanner-emulator/emulator
+        ports:
+          - "9020:9020"
+          - "9010:9010"
     steps:
       - name: checkout
         if: github.event_name == 'pull_request'
@@ -148,3 +153,5 @@ jobs:
       - name: test
         working-directory: ./.integration
         run: go test -v ./...
+        env:
+          SPANNER_EMULATOR_HOST: localhost:9010

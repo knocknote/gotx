@@ -1,4 +1,4 @@
-package _integration_test
+package _integration
 
 import (
 	"context"
@@ -23,7 +23,7 @@ func newTransactor() (*gotxredis.Transactor, gotxredis.ClientProvider) {
 	return transactor, clientProvider
 }
 
-func TestCommit(t *testing.T) {
+func TestRedisCommit(t *testing.T) {
 
 	ctx := context.Background()
 	transactor, clientProvider := newTransactor()
@@ -93,7 +93,7 @@ func TestReadInTransaction(t *testing.T) {
 	}
 }
 
-func TestRollbackOnError(t *testing.T) {
+func TestRedisRollbackOnError(t *testing.T) {
 
 	ctx := context.Background()
 	transactor, clientProvider := newTransactor()
@@ -116,7 +116,7 @@ func TestRollbackOnError(t *testing.T) {
 	}
 }
 
-func TestRollbackOption(t *testing.T) {
+func TestRedisRollbackOption(t *testing.T) {
 
 	ctx := context.Background()
 	transactor, clientProvider := newTransactor()
