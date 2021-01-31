@@ -21,12 +21,12 @@ func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultCli
 	}
 }
 
-func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Conn {
+func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
 	transaction := ctx.Value(currentTransactionKey)
 	if transaction == nil {
 		return p.connectionProvider.CurrentConnection(ctx)
 	}
-	return transaction.(Conn)
+	return transaction.(Client)
 }
 
 type Transactor struct {

@@ -8,6 +8,10 @@ type ConnectionProvider interface {
 	CurrentConnection(ctx context.Context) Conn
 }
 
+type ClientProvider interface {
+	CurrentClient(ctx context.Context) Client
+}
+
 // get db connection from field
 type DefaultConnectionProvider struct {
 	db Conn
