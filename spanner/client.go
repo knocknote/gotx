@@ -74,6 +74,7 @@ func (e *DefaultTxClient) BatchUpdate(ctx context.Context, stmts []spanner.State
 
 func (e *DefaultTxClient) PartitionedUpdate(ctx context.Context, stmt spanner.Statement) (int64, error) {
 	if e.isInReadWriteTransaction() {
+		//spanner doesn't support nested transaction
 		return -1, errors.New("partitioned update is unsupported in read write transaction")
 	}
 	return e.spannerClient.PartitionedUpdate(ctx, stmt)
@@ -81,6 +82,7 @@ func (e *DefaultTxClient) PartitionedUpdate(ctx context.Context, stmt spanner.St
 
 func (e *DefaultTxClient) PartitionedUpdateWithOptions(ctx context.Context, stmt spanner.Statement, options spanner.QueryOptions) (int64, error) {
 	if e.isInReadWriteTransaction() {
+		//spanner doesn't support nested transaction
 		return -1, errors.New("partitioned update is unsupported in read write transaction")
 	}
 	return e.spannerClient.PartitionedUpdateWithOptions(ctx, stmt, options)
