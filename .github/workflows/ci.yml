@@ -129,8 +129,8 @@ jobs:
       spanner:
         image: gcr.io/cloud-spanner-emulator/emulator
         ports:
-          - "9020:9020"
-          - "9010:9010"
+          - 9020:9020
+          - 9010:9010
     steps:
       - name: checkout
         if: github.event_name == 'pull_request'

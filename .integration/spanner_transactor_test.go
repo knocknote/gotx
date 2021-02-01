@@ -93,6 +93,127 @@ func TestSpannerCommit(t *testing.T) {
 	}
 }
 
+func TestSpannerCommitBatchStatement(t *testing.T) {
+
+	ctx := context.Background()
+	connectionProvider, err := newSpannerConnection("local-test1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+
+	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id >= 100"}
+	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
+	var count []int64
+	err = transactor.Required(ctx, func(ctx context.Context) error {
+		client := clientProvider.CurrentClient(ctx)
+		stmt1 := spanner.Statement{
+			SQL: "INSERT INTO test (id) VALUES(@id)",
+			Params: map[string]interface{}{
+				"id": 100,
+			},
+		}
+		stmt2 := spanner.Statement{
+			SQL: "INSERT INTO test (id) VALUES(@id)",
+			Params: map[string]interface{}{
+				"id": 101,
+			},
+		}
+		count, err = client.BatchUpdate(ctx, []spanner.Statement{stmt1, stmt2})
+		return err
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if count[0] != 1 || count[1] != 1 {
+		t.Error("update count must be 1")
+		return
+	}
+}
+
+func TestSpannerCommitStatement(t *testing.T) {
+
+	ctx := context.Background()
+	connectionProvider, err := newSpannerConnection("local-test1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+
+	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id = 100"}
+	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
+	var count int64
+	err = transactor.Required(ctx, func(ctx context.Context) error {
+		client := clientProvider.CurrentClient(ctx)
+		stmt = spanner.Statement{
+			SQL: "INSERT INTO test (id) VALUES(@id)",
+			Params: map[string]interface{}{
+				"id": 100,
+			},
+		}
+		count, err = client.Update(ctx, stmt)
+		return err
+	})
+	if count != 1 {
+		t.Error("update count must be 1")
+		return
+	}
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+}
+
+func TestSpannerCommitApply(t *testing.T) {
+
+	ctx := context.Background()
+	connectionProvider, err := newSpannerConnection("local-test1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+
+	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id >= 100"}
+	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
+	client := clientProvider.CurrentClient(ctx)
+	m := []*spanner.Mutation{
+		spanner.InsertOrUpdate("test", []string{"id"}, []interface{}{100}),
+	}
+	err = client.ApplyOrBufferWrite(ctx, m...)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	//key := spanner.Key{100}
+	row, err := client.ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	var v int64
+	err = row.ColumnByName("id", &v)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if v != 100 {
+		t.Errorf("id must be 100")
+		return
+	}
+
+}
+
 func TestSpannerRollback(t *testing.T) {
 
 	ctx := context.Background()
@@ -114,6 +235,51 @@ func TestSpannerRollback(t *testing.T) {
 	})
 	if err == nil {
 		t.Error("must be error")
+		return
+	}
+
+	client := clientProvider.CurrentClient(ctx)
+	//key := spanner.Key{100}
+	_, err = client.ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
+	if err == nil {
+		t.Error(err)
+		return
+	}
+	fmt.Println(err)
+}
+
+func TestSpannerRollbackStatement(t *testing.T) {
+
+	ctx := context.Background()
+	connectionProvider, err := newSpannerConnection("local-test2")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id = 100"}
+	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
+	var count int64
+	err = transactor.Required(ctx, func(ctx context.Context) error {
+		client := clientProvider.CurrentClient(ctx)
+		stmt = spanner.Statement{
+			SQL: "INSERT INTO test (id) VALUES(@id)",
+			Params: map[string]interface{}{
+				"id": 100,
+			},
+		}
+		count, _ = client.Update(ctx, stmt)
+		return errors.New("error")
+	})
+	if err == nil {
+		t.Error("must be error")
+		return
+	}
+
+	if count != 1 {
+		t.Error("update count must be 1")
 		return
 	}
 
