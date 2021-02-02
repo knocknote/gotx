@@ -28,6 +28,17 @@ go get github.com/knocknote/gotx/spanner@develop
 go get github.com/knocknote/gotx/redis@develop 
 ```
 
+## API
+
+* It provides various methods shown in [Transaction propagation of Spring Framework](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/transaction/annotation/Propagation.html).
+* Currently, only the following methods are supported.
+* You can create any Transactor by implementing Transactor method.
+
+| Method | Description |
+|--------|----------|
+| Required | Support a current transaction, create a new one if none exists. |
+| RequiresNew | Create a new transaction, and suspend the current transaction if one exists. |
+
 ## Usage
 
 Here is the sample usecase.
@@ -181,4 +192,39 @@ func (r *RedisRepository) FindByID(ctx context.Context, userID string) (*model.M
     //TODO unmarshal val
     return model, err
 }
+```
+
+### Composite Transaction 
+
+* Handle multiple transactions transparently with UseCase.
+* This is not a distributed transaction like XA.
+
+
+```go
+func DependencyInjection() {
+   
+    redisClient := redis.NewClient(&redis.Options{
+        Addr:     "localhost:6379",
+        Password: "",
+        DB:       0,
+    })
+    redisConnectionProvider = gotxredis.NewDefaultConnectionProvider(redisClient)
+    redisClientProvider := gotxredis.NewDefaultClientProvider(redisConnectionProvider)
+    
+    dbConnection, err := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
+    dbConnectionProvider = gotxrdbms.NewDefaultConnectionProvider(dbConnection)
+    dbClientProvider := gotxrdbms.NewDefaultClientProvider(dbConnectionProvider)
+    
+    dbTransactor := gotxrdbms.NewTransactor(dbConnectionProvider)    
+    redisTransactor := gotxredis.NewTransactor(redisConnectionProvider)
+       
+    compositeTransactor := gotx.NewCompositeTransactor(redisTransactor, dbTransactor)
+    useCase := &MyUseCase{transactor, ...}
+}
+
+func (u *UseCase) Do(ctx context.Context){
+    // redis transaction is executed in database transaction.
+    // database connection fails if redis transaction fails.
+    // attention! After the redis transaction ends, if the DB commit fails, redis and DB will not match
+    err := u.transactor.Required(ctx, ... 
 ```
