@@ -487,7 +487,7 @@ func TestSpannerOnReadOnlyTransaction(t *testing.T) {
 		if !ok {
 			return errors.New("must be read only transaction")
 		}
-		row, e := reader.WithTimestampBound(spanner.ExactStaleness(1*time.Second)).
+		row, e := reader.WithTimestampBound(spanner.ExactStaleness(16*time.Second)).
 			ReadRow(ctx, "test", spanner.Key{102}, []string{"id"})
 		if e != nil {
 			return e
