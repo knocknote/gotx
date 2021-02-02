@@ -17,7 +17,7 @@ type Reader interface {
 }
 
 type Client interface {
-	Reader
+	Reader(ctx context.Context) Reader
 	ApplyOrBufferWrite(context.Context, ...*spanner.Mutation) error
 	Update(ctx context.Context, statement spanner.Statement) (int64, error)
 	UpdateWithOption(ctx context.Context, statement spanner.Statement, options spanner.QueryOptions) (int64, error)
@@ -88,31 +88,7 @@ func (e *DefaultTxClient) PartitionedUpdateWithOptions(ctx context.Context, stmt
 	return e.spannerClient.PartitionedUpdateWithOptions(ctx, stmt, options)
 }
 
-func (e *DefaultTxClient) Read(ctx context.Context, table string, keys spanner.KeySet, columns []string) *spanner.RowIterator {
-	return e.reader().Read(ctx, table, keys, columns)
-}
-
-func (e *DefaultTxClient) ReadUsingIndex(ctx context.Context, table, index string, keys spanner.KeySet, columns []string) (ri *spanner.RowIterator) {
-	return e.reader().ReadUsingIndex(ctx, table, index, keys, columns)
-}
-
-func (e *DefaultTxClient) Query(ctx context.Context, statement spanner.Statement) *spanner.RowIterator {
-	return e.reader().Query(ctx, statement)
-}
-
-func (e *DefaultTxClient) QueryWithOptions(ctx context.Context, statement spanner.Statement, opts spanner.QueryOptions) *spanner.RowIterator {
-	return e.reader().QueryWithOptions(ctx, statement, opts)
-}
-
-func (e *DefaultTxClient) QueryWithStats(ctx context.Context, statement spanner.Statement) *spanner.RowIterator {
-	return e.reader().QueryWithStats(ctx, statement)
-}
-
-func (e *DefaultTxClient) ReadRow(ctx context.Context, table string, key spanner.Key, columns []string) (*spanner.Row, error) {
-	return e.reader().ReadRow(ctx, table, key, columns)
-}
-
-func (e *DefaultTxClient) reader() Reader {
+func (e *DefaultTxClient) Reader(_ context.Context) Reader {
 	if e.isInReadWriteTransaction() {
 		return e.txRW
 	}
