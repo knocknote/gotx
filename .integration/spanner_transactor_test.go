@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/knocknote/gotx"
 
@@ -76,7 +77,7 @@ func TestSpannerCommit(t *testing.T) {
 
 	client := clientProvider.CurrentClient(ctx)
 	//key := spanner.Key{100}
-	row, err := client.ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
+	row, err := client.Reader(ctx).ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
 	if err != nil {
 		t.Error(err)
 		return
@@ -173,6 +174,75 @@ func TestSpannerCommitStatement(t *testing.T) {
 
 }
 
+func TestSpannerCommitStatementAndMutation(t *testing.T) {
+
+	ctx := context.Background()
+	connectionProvider, err := newSpannerConnection("local-test1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+
+	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id >= 100"}
+	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
+	err = transactor.Required(ctx, func(ctx context.Context) error {
+		client := clientProvider.CurrentClient(ctx)
+		stmt = spanner.Statement{
+			SQL: "INSERT INTO test (id) VALUES(@id)",
+			Params: map[string]interface{}{
+				"id": 100,
+			},
+		}
+		m := []*spanner.Mutation{
+			spanner.InsertOrUpdate("test", []string{"id"}, []interface{}{101}),
+		}
+		_, err = client.Update(ctx, stmt)
+		if err != nil {
+			return err
+		}
+		return client.ApplyOrBufferWrite(ctx, m...)
+	})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	row, err := clientProvider.CurrentClient(ctx).Reader(ctx).ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	var v int64
+	err = row.ColumnByName("id", &v)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if v != 100 {
+		t.Errorf("id must be 100")
+		return
+	}
+
+	row, err = clientProvider.CurrentClient(ctx).Reader(ctx).ReadRow(ctx, "test", spanner.Key{101}, []string{"id"})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = row.ColumnByName("id", &v)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if v != 101 {
+		t.Errorf("id must be 101")
+		return
+	}
+
+	fmt.Println(err)
+}
+
 func TestSpannerCommitApply(t *testing.T) {
 
 	ctx := context.Background()
@@ -196,7 +266,7 @@ func TestSpannerCommitApply(t *testing.T) {
 		return
 	}
 	//key := spanner.Key{100}
-	row, err := client.ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
+	row, err := client.Reader(ctx).ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
 	if err != nil {
 		t.Error(err)
 		return
@@ -240,7 +310,7 @@ func TestSpannerRollback(t *testing.T) {
 
 	client := clientProvider.CurrentClient(ctx)
 	//key := spanner.Key{100}
-	_, err = client.ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
+	_, err = client.Reader(ctx).ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
 	if err == nil {
 		t.Error(err)
 		return
@@ -285,7 +355,7 @@ func TestSpannerRollbackStatement(t *testing.T) {
 
 	client := clientProvider.CurrentClient(ctx)
 	//key := spanner.Key{100}
-	_, err = client.ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
+	_, err = client.Reader(ctx).ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
 	if err == nil {
 		t.Error(err)
 		return
@@ -319,7 +389,7 @@ func TestSpannerRollbackOption(t *testing.T) {
 
 	client := clientProvider.CurrentClient(ctx)
 	//key := spanner.Key{100}
-	_, err = client.ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
+	_, err = client.Reader(ctx).ReadRow(ctx, "test", spanner.Key{100}, []string{"id"})
 	if err == nil {
 		t.Error(err)
 		return
@@ -348,6 +418,88 @@ func TestSpannerReadonlyOption(t *testing.T) {
 
 	if err == nil || err.Error() != "read only transaction doesn't support write operation" {
 		t.Error(err)
+		return
+	}
+}
+
+func TestSpannerErrorOnReadOnlyTransaction(t *testing.T) {
+
+	ctx := context.Background()
+	connectionProvider, err := newSpannerConnection("local-test1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+
+	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id = 100"}
+	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
+	err = transactor.Required(ctx, func(ctx context.Context) error {
+		client := clientProvider.CurrentClient(ctx)
+		stmt = spanner.Statement{
+			SQL: "INSERT INTO test (id) VALUES(@id)",
+			Params: map[string]interface{}{
+				"id": 100,
+			},
+		}
+		_, err = client.Update(ctx, stmt)
+		return err
+	}, gotx.OptionReadOnly())
+	if err == nil {
+		t.Error("must be error")
+		return
+	}
+	fmt.Println(err)
+}
+
+func TestSpannerOnReadOnlyTransaction(t *testing.T) {
+
+	ctx := context.Background()
+	connectionProvider, err := newSpannerConnection("local-test1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+
+	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id = 102"}
+	_, err = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	m := []*spanner.Mutation{
+		spanner.InsertOrUpdate("test", []string{"id"}, []interface{}{102}),
+	}
+	_, err = connectionProvider.CurrentConnection(ctx).Apply(ctx, m)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	var v int64
+	err = transactor.Required(ctx, func(ctx context.Context) error {
+		client := clientProvider.CurrentClient(ctx)
+		reader, ok := client.Reader(ctx).(*spanner.ReadOnlyTransaction)
+		if !ok {
+			return errors.New("must be read only transaction")
+		}
+		row, e := reader.WithTimestampBound(spanner.ExactStaleness(1*time.Second)).
+			ReadRow(ctx, "test", spanner.Key{102}, []string{"id"})
+		if e != nil {
+			return e
+		}
+		return row.ColumnByName("id", &v)
+	}, gotx.OptionReadOnly())
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if v != 102 {
+		t.Error("must be 102")
 		return
 	}
 }
