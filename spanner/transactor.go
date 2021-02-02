@@ -52,22 +52,14 @@ var rollbackOnly = errors.New("rollback only transaction")
 
 func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
 
-	spannerConfig := newConfig()
+	config := gotx.NewDefaultConfig()
 	for _, opt := range options {
-		opt.Apply(&spannerConfig)
+		opt.Apply(&config)
 	}
 
 	spannerClient := t.provider.CurrentConnection(ctx)
-	if spannerConfig.ReadOnly {
+	if config.ReadOnly {
 		txn := spannerClient.ReadOnlyTransaction()
-
-		// use stale read if needed
-		if spannerConfig.VendorOption != nil {
-			conf := spannerConfig.VendorOption.(*config)
-			if conf.timestampBoundEnabled {
-				txn = txn.WithTimestampBound(conf.timestampBound)
-			}
-		}
 		defer txn.Close()
 		executor := NewDefaultTxClient(spannerClient, nil, txn)
 		return fn(context.WithValue(ctx, currentTransactionKey, executor))
@@ -78,7 +70,7 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 		if err != nil {
 			return err
 		}
-		if spannerConfig.RollbackOnly {
+		if config.RollbackOnly {
 			return rollbackOnly
 		}
 		return nil
