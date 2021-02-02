@@ -81,11 +81,11 @@ import (
 func DependencyInjection() {
     connection, err := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
     connectionProvider = gotxrdbms.NewDefaultConnectionProvider(connection)
-    clientProvider := gotxrdbms.NewDefaultClientProvider(connectionProvider)	
-	repository := &RDBRepository{clientProvider}
-	
-	transactor := gotxrdbms.NewTransactor(connectionProvider)
-	useCase := &MyUseCase{transactor, repository}
+    clientProvider := gotxrdbms.NewDefaultClientProvider(connectionProvider)
+    repository := &RDBRepository{clientProvider}
+    
+    transactor := gotxrdbms.NewTransactor(connectionProvider)
+    useCase := &MyUseCase{transactor, repository}
 }
 
 type SpannerRepository {
@@ -94,9 +94,9 @@ type SpannerRepository {
 
 // Repository is unaware of transactions
 func (r *RDBRepository) FindByID(ctx context.Context, userID string) (*model.Model, error) {
-    //In case 1 reader is `sql.Tx`
-    //In case 2 reader is `sql.Tx(readonly)` 
-    //In case 3 reader is `sql.DB or interface provided by gotxrdbms.ConnectionProvider `
+    //Case 1 client is `sql.Tx`
+    //Case 2 client is `sql.Tx(readonly)` 
+    //Case 3 client is `sql.DB or interface provided by gotxrdbms.ConnectionProvider `
     client := r.clientProvider.CurrentClient(ctx)
         
     // use ORM like sqlboiler
@@ -116,12 +116,12 @@ import (
 
 func DependencyInjection() {
     connection, _:= spanner.NewClient(context.Background(),"projects/local-project/instances/test-instance/databases/test-database")
-	connectionProvider = gotxspanner.NewDefaultConnectionProvider(connection)
-    clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)	
-	repository := &SpannerRepository{clientProvider}
-	
-	transactor := gotxspanner.NewTransactor(connectionProvider)
-	useCase := &MyUseCase{transactor, repository}
+    connectionProvider = gotxspanner.NewDefaultConnectionProvider(connection)
+    clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+    repository := &SpannerRepository{clientProvider}
+    
+    transactor := gotxspanner.NewTransactor(connectionProvider)
+    useCase := &MyUseCase{transactor, repository}
 }
 
 type SpannerRepository {
@@ -130,9 +130,9 @@ type SpannerRepository {
 
 // Repository is unaware of transactions
 func (r *SpannerRepository) FindByID(ctx context.Context, userID string) (*model.Model, error)  {
-    //In case 1 reader is `spanner.ReadWriteTransaction` 
-    //In case 2 reader is `spanner.ReadOnlyTransaction` 
-    //In case 3 reader is `spanner.ReadOnlyTransaction` (spanner.Client.Single())
+    //Case 1 reader is `spanner.ReadWriteTransaction` 
+    //Case 2 reader is `spanner.ReadOnlyTransaction` 
+    //Case 3 reader is `spanner.ReadOnlyTransaction` (spanner.Client.Single())
     reader := r.clientProvider.CurrentClient(ctx).Reader()
         
     // use ORM like https://github.com/cloudspannerecosystem/yo
@@ -156,12 +156,12 @@ func DependencyInjection() {
         Password: "",
         DB:       0,
     })
-    connectionProvider = gotxspanner.NewDefaultConnectionProvider(connection)
-    clientProvider := gotxredis.NewDefaultClientProvider(connectionProvider)	
-	repository := &RedisRepository{clientProvider}
-	
-	transactor := gotxredis.NewTransactor(connectionProvider)
-	useCase := &MyUseCase{transactor, repository}
+    connectionProvider = gotxredis.NewDefaultConnectionProvider(connection)
+    clientProvider := gotxredis.NewDefaultClientProvider(connectionProvider)
+    repository := &RedisRepository{clientProvider}
+    
+    transactor := gotxredis.NewTransactor(connectionProvider)
+    useCase := &MyUseCase{transactor, repository}
 }
 
 type RedisRepository {
@@ -170,9 +170,9 @@ type RedisRepository {
 
 // Repository is unaware of transactions
 func (r *RedisRepository) FindByID(ctx context.Context, userID string) (*model.Model, error)  {
-    //In case 1 reader is `redis.Client` and writer is `redis.Pipeliner`
-	//In case 1 reader is `redis.Client` and writer is `redis.Pipeliner` read only option is unsupported
-	//In case 1 reader and writer is `redis.Client`
+    //Case 1 reader is `redis.Client` and writer is `redis.Pipeliner` 
+    //Case 2 reader is `redis.Client` and writer is `redis.Pipeliner` read only option is unsupported 
+    //Case 3 reader and writer is `redis.Client`
     reader, writer := r.clientProvider.CurrentClient(ctx).Reader()
     
     // calling `writer.Get` returns empty result in `redis.TxPipelined` so use reader to use get item.
