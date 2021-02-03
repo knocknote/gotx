@@ -2,6 +2,8 @@ package rdbms
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 )
 
 type ConnectionProvider interface {
@@ -27,25 +29,39 @@ func (p *DefaultConnectionProvider) CurrentConnection(_ context.Context) Conn {
 	return p.db
 }
 
-// get db connection from context
-type contextCurrentConnectionKey string
+type ShardKeyProvider func(ctx context.Context) string
 
-type ContextualConnectionProvider struct {
-	key contextCurrentConnectionKey
+// get db by hash slot
+type ShardConnectionProvider struct {
+	db               []Conn
+	hashSlot         []uint32
+	shardKeyProvider ShardKeyProvider
+	maxSlot          uint32
 }
 
-func NewContextualConnectionProvider() *ContextualConnectionProvider {
-	return &ContextualConnectionProvider{
-		key: "current_rdb_connection",
+func NewShardConnectionProvider(db []Conn, maxSlot uint32, shardKeyProvider ShardKeyProvider) *ShardConnectionProvider {
+	average := maxSlot / uint32(len(db))
+	maxValuePerShard := make([]uint32, len(db))
+	for i := range maxValuePerShard {
+		maxValuePerShard[i] = average * uint32(i+1)
+	}
+	return &ShardConnectionProvider{
+		db:               db,
+		shardKeyProvider: shardKeyProvider,
+		hashSlot:         maxValuePerShard,
+		maxSlot:          maxSlot,
 	}
 }
 
-func NewContextualConnectionProviderWithConfig(key contextCurrentConnectionKey) *ContextualConnectionProvider {
-	return &ContextualConnectionProvider{
-		key: key,
+func (p *ShardConnectionProvider) CurrentConnection(ctx context.Context) Conn {
+	shardKey := p.shardKeyProvider(ctx)
+	hashByte := sha256.Sum256([]byte(shardKey))
+	hashInt := binary.BigEndian.Uint32(hashByte[:])
+	slot := hashInt % p.maxSlot
+	for i, v := range p.hashSlot {
+		if slot < v {
+			return p.db[i]
+		}
 	}
-}
-
-func (p *ContextualConnectionProvider) CurrentConnection(ctx context.Context) Conn {
-	return ctx.Value(p.key).(Conn)
+	return nil
 }

@@ -3,60 +3,64 @@ package rdbms
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/knocknote/gotx"
 )
 
+type contextTransactionKey string
+
 type DefaultClientProvider struct {
-	keyProvider        KeyProvider
+	shardKeyProvider   ShardKeyProvider
 	connectionProvider ConnectionProvider
 }
 
-var defaultKeyProvider = func(ctx context.Context) contextTransactionKey {
-	return "current_rdb_transaction"
+var defaultShardKeyProvider = func(ctx context.Context) string {
+	return "common"
+}
+
+func contextKey(shardKey string) contextTransactionKey {
+	return contextTransactionKey(fmt.Sprintf("current_%s_tx", shardKey))
 }
 
 func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
-	return NewDefaultClientProviderWithConfig(connectionProvider, defaultKeyProvider)
+	return NewDefaultShardClientProvider(connectionProvider, defaultShardKeyProvider)
 }
 
-func NewDefaultClientProviderWithConfig(connectionProvider ConnectionProvider, keyProvider KeyProvider) *DefaultClientProvider {
+func NewDefaultShardClientProvider(connectionProvider ConnectionProvider, shardKeyProvider ShardKeyProvider) *DefaultClientProvider {
 	return &DefaultClientProvider{
-		keyProvider:        keyProvider,
+		shardKeyProvider:   shardKeyProvider,
 		connectionProvider: connectionProvider,
 	}
 }
 
 func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
-	transaction := ctx.Value(p.keyProvider(ctx))
+	key := contextKey(p.shardKeyProvider(ctx))
+	transaction := ctx.Value(key)
 	if transaction == nil {
 		return p.connectionProvider.CurrentConnection(ctx)
 	}
 	return transaction.(Client)
 }
 
-type contextTransactionKey string
-
-type KeyProvider func(ctx context.Context) contextTransactionKey
-
 type Transactor struct {
-	keyProvider        KeyProvider
+	shardKeyProvider   ShardKeyProvider
 	connectionProvider ConnectionProvider
 }
 
 func NewTransactor(connectionProvider ConnectionProvider) *Transactor {
-	return NewTransactorWithConfig(connectionProvider, defaultKeyProvider)
+	return NewShardTransactor(connectionProvider, defaultShardKeyProvider)
 }
 
-func NewTransactorWithConfig(connectionProvider ConnectionProvider, keyProvider KeyProvider) *Transactor {
+func NewShardTransactor(connectionProvider ConnectionProvider, shardKeyProvider ShardKeyProvider) *Transactor {
 	return &Transactor{
-		keyProvider:        keyProvider,
+		shardKeyProvider:   shardKeyProvider,
 		connectionProvider: connectionProvider,
 	}
 }
 
 func (t *Transactor) Required(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
-	if ctx.Value(t.keyProvider(ctx)) != nil {
+	if ctx.Value(contextKey(t.shardKeyProvider(ctx))) != nil {
 		return fn(ctx)
 	}
 	return t.RequiresNew(ctx, fn, options...)
@@ -88,6 +92,6 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 			}
 		}
 	}()
-	err = fn(context.WithValue(ctx, t.keyProvider(ctx), tx))
+	err = fn(context.WithValue(ctx, contextKey(t.shardKeyProvider(ctx)), tx))
 	return
 }
