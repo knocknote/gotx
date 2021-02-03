@@ -7,40 +7,54 @@ import (
 	"github.com/knocknote/gotx"
 )
 
-type contextCurrentTransactionKey string
-
-const currentTransactionKey contextCurrentTransactionKey = "current_rdb_transaction"
-
 type DefaultClientProvider struct {
+	keyProvider        KeyProvider
 	connectionProvider ConnectionProvider
 }
 
+var defaultKeyProvider = func(ctx context.Context) string {
+	return "current_rdb_transaction"
+}
+
 func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
+	return NewDefaultClientProviderWithConfig(connectionProvider, defaultKeyProvider)
+}
+
+func NewDefaultClientProviderWithConfig(connectionProvider ConnectionProvider, keyProvider KeyProvider) *DefaultClientProvider {
 	return &DefaultClientProvider{
+		keyProvider:        keyProvider,
 		connectionProvider: connectionProvider,
 	}
 }
 
 func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
-	transaction := ctx.Value(currentTransactionKey)
+	transaction := ctx.Value(p.keyProvider(ctx))
 	if transaction == nil {
 		return p.connectionProvider.CurrentConnection(ctx)
 	}
 	return transaction.(Client)
 }
 
+type KeyProvider func(ctx context.Context) string
+
 type Transactor struct {
-	provider ConnectionProvider
+	keyProvider        KeyProvider
+	connectionProvider ConnectionProvider
 }
 
-func NewTransactor(provider ConnectionProvider) *Transactor {
+func NewTransactor(connectionProvider ConnectionProvider) *Transactor {
+	return NewTransactorWithConfig(connectionProvider, defaultKeyProvider)
+}
+
+func NewTransactorWithConfig(connectionProvider ConnectionProvider, keyProvider KeyProvider) *Transactor {
 	return &Transactor{
-		provider: provider,
+		keyProvider:        keyProvider,
+		connectionProvider: connectionProvider,
 	}
 }
 
 func (t *Transactor) Required(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
-	if ctx.Value(currentTransactionKey) != nil {
+	if ctx.Value(t.keyProvider(ctx)) != nil {
 		return fn(ctx)
 	}
 	return t.RequiresNew(ctx, fn, options...)
@@ -51,7 +65,7 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 	for _, opt := range options {
 		opt.Apply(&config)
 	}
-	db := t.provider.CurrentConnection(ctx)
+	db := t.connectionProvider.CurrentConnection(ctx)
 	tx, err := db.BeginTx(ctx, &sql.TxOptions{
 		ReadOnly: config.ReadOnly,
 	})
@@ -72,6 +86,6 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 			}
 		}
 	}()
-	err = fn(context.WithValue(ctx, currentTransactionKey, tx))
+	err = fn(context.WithValue(ctx, t.keyProvider(ctx), tx))
 	return
 }

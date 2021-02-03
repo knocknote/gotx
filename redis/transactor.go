@@ -10,7 +10,7 @@ import (
 
 type contextCurrentTransactionKey string
 
-const currentTransactionKey contextCurrentTransactionKey = "current_rdb_transaction"
+const currentTransactionKey contextCurrentTransactionKey = "current_redis_transaction"
 
 type DefaultClientProvider struct {
 	connectionProvider ConnectionProvider

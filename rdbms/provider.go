@@ -30,19 +30,22 @@ func (p *DefaultConnectionProvider) CurrentConnection(_ context.Context) Conn {
 // get db connection from context
 type contextCurrentConnectionKey string
 
-const currentConnectionKey contextCurrentConnectionKey = "current_rdb_connection"
-
-func WithCurrentConnection(ctx context.Context, con Conn) context.Context {
-	return context.WithValue(ctx, currentConnectionKey, con)
-}
-
 type ContextualConnectionProvider struct {
+	key contextCurrentConnectionKey
 }
 
 func NewContextualConnectionProvider() *ContextualConnectionProvider {
-	return &ContextualConnectionProvider{}
+	return &ContextualConnectionProvider{
+		key: "current_rdb_connection",
+	}
+}
+
+func NewContextualConnectionProviderWithConfig(key contextCurrentConnectionKey) *ContextualConnectionProvider {
+	return &ContextualConnectionProvider{
+		key: key,
+	}
 }
 
 func (p *ContextualConnectionProvider) CurrentConnection(ctx context.Context) Conn {
-	return ctx.Value(currentConnectionKey).(Conn)
+	return ctx.Value(p.key).(Conn)
 }
