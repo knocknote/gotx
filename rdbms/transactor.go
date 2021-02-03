@@ -12,7 +12,7 @@ type DefaultClientProvider struct {
 	connectionProvider ConnectionProvider
 }
 
-var defaultKeyProvider = func(ctx context.Context) string {
+var defaultKeyProvider = func(ctx context.Context) contextTransactionKey {
 	return "current_rdb_transaction"
 }
 
@@ -35,7 +35,9 @@ func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
 	return transaction.(Client)
 }
 
-type KeyProvider func(ctx context.Context) string
+type contextTransactionKey string
+
+type KeyProvider func(ctx context.Context) contextTransactionKey
 
 type Transactor struct {
 	keyProvider        KeyProvider
