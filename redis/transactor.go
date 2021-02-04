@@ -13,7 +13,11 @@ type Transactor struct {
 	connectionProvider ConnectionProvider
 }
 
-func NewTransactor(connectionProvider ConnectionProvider, shardKeyProvider ShardKeyProvider) *Transactor {
+func NewTransactor(connectionProvider ConnectionProvider) *Transactor {
+	return NewShardingTransactor(connectionProvider, defaultShardKeyProvider)
+}
+
+func NewShardingTransactor(connectionProvider ConnectionProvider, shardKeyProvider ShardKeyProvider) *Transactor {
 	return &Transactor{
 		shardKeyProvider:   shardKeyProvider,
 		connectionProvider: connectionProvider,
