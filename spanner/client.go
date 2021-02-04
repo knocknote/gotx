@@ -105,3 +105,29 @@ func (e *DefaultTxClient) isInReadWriteTransaction() bool {
 func (e *DefaultTxClient) isInReadOnlyTransaction() bool {
 	return e.txRO != nil
 }
+
+type ClientProvider interface {
+	CurrentClient(ctx context.Context) Client
+}
+
+type contextCurrentTransactionKey string
+
+const currentTransactionKey contextCurrentTransactionKey = "current_spanner_transaction"
+
+type DefaultClientProvider struct {
+	connectionProvider ConnectionProvider
+}
+
+func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
+	return &DefaultClientProvider{
+		connectionProvider: connectionProvider,
+	}
+}
+
+func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
+	transaction := ctx.Value(currentTransactionKey)
+	if transaction == nil {
+		return NewDefaultTxClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
+	}
+	return transaction.(Client)
+}

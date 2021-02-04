@@ -8,41 +8,20 @@ import (
 	"github.com/go-redis/redis"
 )
 
-type contextCurrentTransactionKey string
-
-const currentTransactionKey contextCurrentTransactionKey = "current_redis_transaction"
-
-type DefaultClientProvider struct {
+type Transactor struct {
+	shardKeyProvider   ShardKeyProvider
 	connectionProvider ConnectionProvider
 }
 
-func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
-	return &DefaultClientProvider{
+func NewTransactor(connectionProvider ConnectionProvider, shardKeyProvider ShardKeyProvider) *Transactor {
+	return &Transactor{
+		shardKeyProvider:   shardKeyProvider,
 		connectionProvider: connectionProvider,
 	}
 }
 
-func (p *DefaultClientProvider) CurrentClient(ctx context.Context) (reader redis.Cmdable, writer redis.Cmdable) {
-	client := p.connectionProvider.CurrentConnection(ctx)
-	transaction := ctx.Value(currentTransactionKey)
-	if transaction == nil {
-		return client, client
-	}
-	return client, transaction.(redis.Cmdable)
-}
-
-type Transactor struct {
-	provider ConnectionProvider
-}
-
-func NewTransactor(provider ConnectionProvider) *Transactor {
-	return &Transactor{
-		provider: provider,
-	}
-}
-
 func (t *Transactor) Required(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
-	if ctx.Value(currentTransactionKey) != nil {
+	if ctx.Value(contextKey(t.shardKeyProvider(ctx))) != nil {
 		return fn(ctx)
 	}
 	return t.RequiresNew(ctx, fn, options...)
@@ -54,9 +33,9 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 		opt.Apply(&config)
 	}
 	//TODO support optimistic locking if needed.
-	redisClient := t.provider.CurrentConnection(ctx)
+	redisClient := t.connectionProvider.CurrentConnection(ctx)
 	_, err := redisClient.TxPipelined(func(pipe redis.Pipeliner) error {
-		err := fn(context.WithValue(ctx, currentTransactionKey, pipe))
+		err := fn(context.WithValue(ctx, contextKey(t.shardKeyProvider(ctx)), pipe))
 		if err != nil || config.RollbackOnly {
 			_ = pipe.Discard()
 		}

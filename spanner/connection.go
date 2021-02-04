@@ -10,10 +10,6 @@ type ConnectionProvider interface {
 	CurrentConnection(ctx context.Context) *spanner.Client
 }
 
-type ClientProvider interface {
-	CurrentClient(ctx context.Context) Client
-}
-
 type DefaultConnectionProvider struct {
 	client *spanner.Client
 }

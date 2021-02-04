@@ -3,45 +3,9 @@ package rdbms
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/knocknote/gotx"
 )
-
-type contextTransactionKey string
-
-type DefaultClientProvider struct {
-	shardKeyProvider   ShardKeyProvider
-	connectionProvider ConnectionProvider
-}
-
-var defaultShardKeyProvider = func(ctx context.Context) string {
-	return "common"
-}
-
-func contextKey(shardKey string) contextTransactionKey {
-	return contextTransactionKey(fmt.Sprintf("current_%s_tx", shardKey))
-}
-
-func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
-	return NewDefaultShardClientProvider(connectionProvider, defaultShardKeyProvider)
-}
-
-func NewDefaultShardClientProvider(connectionProvider ConnectionProvider, shardKeyProvider ShardKeyProvider) *DefaultClientProvider {
-	return &DefaultClientProvider{
-		shardKeyProvider:   shardKeyProvider,
-		connectionProvider: connectionProvider,
-	}
-}
-
-func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
-	key := contextKey(p.shardKeyProvider(ctx))
-	transaction := ctx.Value(key)
-	if transaction == nil {
-		return p.connectionProvider.CurrentConnection(ctx)
-	}
-	return transaction.(Client)
-}
 
 type Transactor struct {
 	shardKeyProvider   ShardKeyProvider
@@ -49,10 +13,10 @@ type Transactor struct {
 }
 
 func NewTransactor(connectionProvider ConnectionProvider) *Transactor {
-	return NewShardTransactor(connectionProvider, defaultShardKeyProvider)
+	return NewShardingTransactor(connectionProvider, defaultShardKeyProvider)
 }
 
-func NewShardTransactor(connectionProvider ConnectionProvider, shardKeyProvider ShardKeyProvider) *Transactor {
+func NewShardingTransactor(connectionProvider ConnectionProvider, shardKeyProvider ShardKeyProvider) *Transactor {
 	return &Transactor{
 		shardKeyProvider:   shardKeyProvider,
 		connectionProvider: connectionProvider,
