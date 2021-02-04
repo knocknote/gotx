@@ -10,6 +10,13 @@ In the architecture of web applications, differences in data sources are absorbe
 However, transactions straddle Repository and Dao.  
 I created this library from the desire to do simple coding by providing a `Transactor` that absorbs the difference in transaction behavior between data sources such as redis and spanner.
 
+## Features
+* Transaction Abstraction Layer.  
+  <img src="./.img/feature1.png"/>
+  
+* Database Sharding ( includes composite transaction )  
+  <img src="./.img/feature2.png"/>
+
 ## Installation
 
 This library is currently in alpha version.
@@ -49,35 +56,35 @@ Here is the sample usecase.
 
 ```go
 type MyUseCase struct {
-transactor gotx.Transactor
-repository Reppsitory
+  transactor gotx.Transactor
+  repository Reppsitory
 }
 
 func (u *MyUseCase) Do(ctx context.Context) error {
 
-// case 1
-tx1Err := u.transactor.Required(ctx, func(ctx context.Context) error {
-// do in spanner.ReadWriterTransaction
-res, err := u.repository.FindByID(ctx, "A")
-if err != nil {
-return err
-}
-model.value += 100
-return u.repository.Update(ctx, model)
-})
+  // case 1
+  tx1Err := u.transactor.Required(ctx, func(ctx context.Context) error {
+    // do in spanner.ReadWriterTransaction
+    res, err := u.repository.FindByID(ctx, "A")
+    if err != nil {
+      return err
+    }
+    model.value += 100
+    return u.repository.Update(ctx, model)
+  })
 
-// case 2
-var res model.Model
-tx2Err := u.transactor.Required(ctx, func(ctx context.Context) error {
-// do in spanner.ReadOnlyTransaction
-var err error
-res, err = u.repository.FindByID(ctx, "A")
-return err
-}, gotx.OptionReadOnly())
+  // case 2
+  var res model.Model
+  tx2Err := u.transactor.Required(ctx, func(ctx context.Context) error {
+    // do in spanner.ReadOnlyTransaction
+    var err error
+    res, err = u.repository.FindByID(ctx, "A")
+    return err
+  }, gotx.OptionReadOnly())
 
-// case 3
-// no transaction     
-model, err := u.repository.FindByID(ctx, "A")
+  // case 3
+  // no transaction     
+  model, err := u.repository.FindByID(ctx, "A")
 }
 ```
 
@@ -85,37 +92,37 @@ model, err := u.repository.FindByID(ctx, "A")
 
 ```go
 import (
-"database/sql"
+  "database/sql"
 
-"github.com/knocknote/gotx"
-gotxrdbms "github.com/knocknote/gotx/rdbms"
+  "github.com/knocknote/gotx"
+  gotxrdbms "github.com/knocknote/gotx/rdbms"
 
-_ "github.com/lib/pq"
+  _ "github.com/lib/pq"
 )
 
 func DependencyInjection() {
-connection, err := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
-connectionProvider = gotxrdbms.NewDefaultConnectionProvider(connection)
-clientProvider := gotxrdbms.NewDefaultClientProvider(connectionProvider)
-repository := &RDBRepository{clientProvider}
+  connection, err := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
+  connectionProvider = gotxrdbms.NewDefaultConnectionProvider(connection)
+  clientProvider := gotxrdbms.NewDefaultClientProvider(connectionProvider)
+  repository := &RDBRepository{clientProvider}
 
-transactor := gotxrdbms.NewTransactor(connectionProvider)
-useCase := &MyUseCase{transactor, repository}
+  transactor := gotxrdbms.NewTransactor(connectionProvider)
+  useCase := &MyUseCase{transactor, repository}
 }
 
 type RDBRepository struct {
-clientProvider gotxrdbms.ClientProvider
+  clientProvider gotxrdbms.ClientProvider
 }
 
 // Repository is unaware of transactions
 func (r *RDBRepository) FindByID(ctx context.Context, userID string) (*model.Model, error) {
-//Case 1 client is `sql.Tx`
-//Case 2 client is `sql.Tx(readonly)` 
-//Case 3 client is `sql.DB or interface provided by gotxrdbms.ConnectionProvider `
-client := r.clientProvider.CurrentClient(ctx)
+  //Case 1 client is `sql.Tx`
+  //Case 2 client is `sql.Tx(readonly)` 
+  //Case 3 client is `sql.DB or interface provided by gotxrdbms.ConnectionProvider `
+  client := r.clientProvider.CurrentClient(ctx)
 
-// use ORM like sqlboiler
-return model.FindModel(ctx, client, userID)
+  // use ORM like sqlboiler
+  return model.FindModel(ctx, client, userID)
 }
 ```
 
@@ -123,35 +130,35 @@ return model.FindModel(ctx, client, userID)
 
 ```go
 import (
-"cloud.google.com/go/spanner"
+  "cloud.google.com/go/spanner"
 
-"github.com/knocknote/gotx"
-gotxspanner "github.com/knocknote/gotx/spanner"
+  "github.com/knocknote/gotx"
+  gotxspanner "github.com/knocknote/gotx/spanner"
 )
 
 func DependencyInjection() {
-connection, _:= spanner.NewClient(context.Background(),"projects/local-project/instances/test-instance/databases/test-database")
-connectionProvider = gotxspanner.NewDefaultConnectionProvider(connection)
-clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
-repository := &SpannerRepository{clientProvider}
+  connection, _:= spanner.NewClient(context.Background(),"projects/local-project/instances/test-instance/databases/test-database")
+  connectionProvider = gotxspanner.NewDefaultConnectionProvider(connection)
+  clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+  repository := &SpannerRepository{clientProvider}
 
-transactor := gotxspanner.NewTransactor(connectionProvider)
-useCase := &MyUseCase{transactor, repository}
+  transactor := gotxspanner.NewTransactor(connectionProvider)
+  useCase := &MyUseCase{transactor, repository}
 }
 
 type SpannerRepository struct {
-clientProvider gotxspanner.ClientProvider
+  clientProvider gotxspanner.ClientProvider
 }
 
 // Repository is unaware of transactions
 func (r *SpannerRepository) FindByID(ctx context.Context, userID string) (*model.Model, error)  {
-//Case 1 reader is `spanner.ReadWriteTransaction` 
-//Case 2 reader is `spanner.ReadOnlyTransaction` 
-//Case 3 reader is `spanner.ReadOnlyTransaction` (spanner.Client.Single())
-reader := r.clientProvider.CurrentClient(ctx).Reader()
+  //Case 1 reader is `spanner.ReadWriteTransaction` 
+  //Case 2 reader is `spanner.ReadOnlyTransaction` 
+  //Case 3 reader is `spanner.ReadOnlyTransaction` (spanner.Client.Single())
+  reader := r.clientProvider.CurrentClient(ctx).Reader()
 
-// use ORM like https://github.com/cloudspannerecosystem/yo
-return model.FindModel(ctx, reader, userID)
+  // use ORM like https://github.com/cloudspannerecosystem/yo
+  return model.FindModel(ctx, reader, userID)
 }
 ```
 
@@ -159,76 +166,105 @@ return model.FindModel(ctx, reader, userID)
 
 ```go
 import (
-"github.com/go-redis/redis"
+  "github.com/go-redis/redis"
 
-"github.com/knocknote/gotx"
-gotxredis "github.com/knocknote/gotx/redis"
+  "github.com/knocknote/gotx"
+  gotxredis "github.com/knocknote/gotx/redis"
 )
 
 func DependencyInjection() {
-connection := redis.NewClient(&redis.Options{
-Addr:     "localhost:6379",
-Password: "",
-DB:       0,
-})
-connectionProvider = gotxredis.NewDefaultConnectionProvider(connection)
-clientProvider := gotxredis.NewDefaultClientProvider(connectionProvider)
-repository := &RedisRepository{clientProvider}
+  connection := redis.NewClient(&redis.Options{
+    Addr:     "localhost:6379",
+    Password: "",
+    DB:       0,
+  })
+  connectionProvider = gotxredis.NewDefaultConnectionProvider(connection)
+  clientProvider := gotxredis.NewDefaultClientProvider(connectionProvider)
+  repository := &RedisRepository{clientProvider}
 
-transactor := gotxredis.NewTransactor(connectionProvider)
-useCase := &MyUseCase{transactor, repository}
+  transactor := gotxredis.NewTransactor(connectionProvider)
+  useCase := &MyUseCase{transactor, repository}
 }
 
 type RedisRepository struct {
-clientProvider gotxredis.ClientProvider
+  clientProvider gotxredis.ClientProvider
 }
 
 // Repository is unaware of transactions
 func (r *RedisRepository) FindByID(ctx context.Context, userID string) (*model.Model, error)  {
-//Case 1 reader is `redis.Client` and writer is `redis.Pipeliner` 
-//Case 2 reader is `redis.Client` and writer is `redis.Pipeliner` read only option is unsupported 
-//Case 3 reader and writer is `redis.Client`
-reader, writer := r.clientProvider.CurrentClient(ctx).Reader()
+  //Case 1 reader is `redis.Client` and writer is `redis.Pipeliner` 
+  //Case 2 reader is `redis.Client` and writer is `redis.Pipeliner` read only option is unsupported 
+  //Case 3 reader and writer is `redis.Client`
+  reader, writer := r.clientProvider.CurrentClient(ctx).Reader()
 
-// calling `writer.Get` returns empty result in `redis.TxPipelined` so use reader to use get item.
-val, err := reader.Get(userID).Result()
-var model &Model
-//TODO unmarshal val
-return model, err
+  // calling `writer.Get` returns empty result in `redis.TxPipelined` so use reader to use get item.
+  val, err := reader.Get(userID).Result()
+  var model &Model
+  //TODO unmarshal val
+  return model, err
 }
 ```
 
-### Composite Transaction
+### Database Sharding
 
+* Select specified connection from []*sql.DB by the sharding key.
+
+```go
+func DependencyInjection() {
+	
+  var userCons []*sql.DB // create sql.DB for each sharded database
+  userShardKeyProvider := func(ctx context.Context) string {
+    return ctx.Value(shardKeyUser).(string)
+  }
+  // use hash-slot
+  userConnectionProvider = gotxrdbms.NewShardingConnectionProvider(userCons, 127, userShardKeyProvider)
+  userTransactor := rdbms.NewShardingTransactor(userConnectionProvider, userShardKeyProvider)
+  userClientProvider := rdbms.NewShardingDefaultClientProvider(userConnectionProvider, userShardKeyProvider)
+
+  useCase := &MyUseCase{transactor, ...}
+}
+
+func (u *UseCase) Do(ctx context.Context){
+  var userID
+  err := u.transactor.Required(context.WithValue(ctx, shardKeyUser, userID), func(ctx context.Context){
+  	// in target shard transaction scope
+  	u.repostiory.Update(ctx, model)
+  })	
+}
+```
+
+#### Multiple Database Sharding
+
+* Select specified connection from multiple []*sql.DB by the sharding key.
 * Handle multiple transactions transparently with UseCase.
 * This is not a distributed transaction like XA.
 
 ```go
 func DependencyInjection() {
-
-redisClient := redis.NewClient(&redis.Options{
-Addr:     "localhost:6379",
-Password: "",
-DB:       0,
-})
-redisConnectionProvider = gotxredis.NewDefaultConnectionProvider(redisClient)
-redisClientProvider := gotxredis.NewDefaultClientProvider(redisConnectionProvider)
-
-dbConnection, err := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
-dbConnectionProvider = gotxrdbms.NewDefaultConnectionProvider(dbConnection)
-dbClientProvider := gotxrdbms.NewDefaultClientProvider(dbConnectionProvider)
-
-dbTransactor := gotxrdbms.NewTransactor(dbConnectionProvider)
-redisTransactor := gotxredis.NewTransactor(redisConnectionProvider)
-
-compositeTransactor := gotx.NewCompositeTransactor(redisTransactor, dbTransactor)
-useCase := &MyUseCase{transactor, ...}
+	
+  var userCons []*sql.DB // create sql.DB for each sharded database
+  userShardKeyProvider := func(ctx context.Context) string {
+    return ctx.Value(shardKeyUser).(string)
+  }
+  userConnectionProvider = gotxrdbms.NewShardingConnectionProvider(userCons, 127, userShardKeyProvider)
+  userTransactor := rdbms.NewShardingTransactor(userConnectionProvider, userShardKeyProvider)
+  userClientProvider := rdbms.NewShardingDefaultClientProvider(userConnectionProvider, userShardKeyProvider)
+  
+  var guildCons []*sql.DB // create sql.DB for each sharded database
+  guildShardKeyProvider := func(ctx context.Context) string {
+    return ctx.Value(shardKeyGuild).(string)
+  }
+  
+  transaction := gotx.NewCompositeTransactor(userTransactor, guildTransactor)
+  useCase := &MyUseCase{transactor, ...}
 }
 
-func (u *UseCase) Do(ctx context.Context){
-// redis transaction is executed in database transaction.
-// database connection fails if redis transaction fails.
-// attention! After the redis transaction ends, if the DB commit fails, redis and DB will not match
-err := u.transactor.Required(ctx, ... 
+func (u *UseCase) Do(ctx context.Context) {
+  childCtx = context.WithValue(context.WithValue(ctx, shardKeyUser, "userID"), shardKeyGuild, "guildID")
+  err := u.transactor.Required(childCtx, func(ctx context.Context) error {
+    // in target shard transaction scope. ( one guild Tx and one user Tx begins. )
+    u.guildRepostiory.Update(ctx, guildModel)
+    u.userRepostiory.Update(ctx, userModel)
+  }
+} 
 ```
-
