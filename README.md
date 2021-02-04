@@ -11,11 +11,11 @@ However, transactions straddle Repository and Dao.
 I created this library from the desire to do simple coding by providing a `Transactor` that absorbs the difference in transaction behavior between data sources such as redis and spanner.
 
 ## Features
-* Transaction Abstraction Layer.  
-  <img src="./.img/feature1.png"/>
+* Transaction Abstraction Layer  
+  <img src="./.img/feature1.png" width="360px"/>
   
-* Database Sharding ( includes composite transaction )  
-  <img src="./.img/feature2.png"/>
+* Database Sharding  
+  <img src="./.img/feature2.png" width="360px"/>
 
 ## Installation
 
