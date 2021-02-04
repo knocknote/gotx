@@ -28,20 +28,20 @@ func (p *DefaultConnectionProvider) CurrentConnection(_ context.Context) Conn {
 type ShardKeyProvider func(ctx context.Context) string
 
 // get db by hash slot
-type ShardConnectionProvider struct {
+type ShardingConnectionProvider struct {
 	db               []Conn
 	hashSlot         []uint32
 	shardKeyProvider ShardKeyProvider
 	maxSlot          uint32
 }
 
-func NewShardConnectionProvider(db []Conn, maxSlot uint32, shardKeyProvider ShardKeyProvider) *ShardConnectionProvider {
+func NewShardingConnectionProvider(db []Conn, maxSlot uint32, shardKeyProvider ShardKeyProvider) *ShardingConnectionProvider {
 	average := maxSlot / uint32(len(db))
 	maxValuePerShard := make([]uint32, len(db))
 	for i := range maxValuePerShard {
 		maxValuePerShard[i] = average * uint32(i+1)
 	}
-	return &ShardConnectionProvider{
+	return &ShardingConnectionProvider{
 		db:               db,
 		shardKeyProvider: shardKeyProvider,
 		hashSlot:         maxValuePerShard,
@@ -49,7 +49,7 @@ func NewShardConnectionProvider(db []Conn, maxSlot uint32, shardKeyProvider Shar
 	}
 }
 
-func (p *ShardConnectionProvider) CurrentConnection(ctx context.Context) Conn {
+func (p *ShardingConnectionProvider) CurrentConnection(ctx context.Context) Conn {
 	shardKey := p.shardKeyProvider(ctx)
 	hashByte := sha256.Sum256([]byte(shardKey))
 	hashInt := binary.BigEndian.Uint32(hashByte[:])
