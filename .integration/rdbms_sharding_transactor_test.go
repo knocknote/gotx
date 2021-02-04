@@ -14,141 +14,222 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func newConnection() rdbms.ConnectionProvider {
-	connection, err := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
-	if err != nil {
-		fmt.Printf("open error %v", err)
-		return nil
-	}
-	return rdbms.NewDefaultConnectionProvider(connection)
+type shardKey string
+
+var shardKeyUser shardKey = "userID"
+var shardKeyGuild shardKey = "guildID"
+
+var userShardKeyProvider = func(ctx context.Context) string {
+	return ctx.Value(shardKeyUser).(string)
 }
 
-func createTable(ctx context.Context, connectionProvider rdbms.ConnectionProvider, name string) error {
-	connection := connectionProvider.CurrentConnection(ctx)
-	_, _ = connection.Exec(fmt.Sprintf("drop table %s", name))
-	_, err := connection.Exec(fmt.Sprintf("create table %s ( id varchar(10))", name))
-	return err
+var guildShardKeyProvider = func(ctx context.Context) string {
+	return ctx.Value(shardKeyGuild).(string)
 }
 
-func TestCommit(t *testing.T) {
+func newShardingConnection() (rdbms.ConnectionProvider, rdbms.ConnectionProvider, []*sql.DB, []*sql.DB) {
+	userConnection1, _ := sql.Open("postgres", "postgres://postgres:password@localhost:5432/testdb?sslmode=disable")
+	userConnection2, _ := sql.Open("postgres", "postgres://postgres:password@localhost:5433/testdb?sslmode=disable")
+	guildConnection1, _ := sql.Open("postgres", "postgres://postgres:password@localhost:5432/testdb?sslmode=disable")
+	guildConnection2, _ := sql.Open("postgres", "postgres://postgres:password@localhost:5433/testdb?sslmode=disable")
 
-	ctx := context.Background()
-	connectionProvider := newConnection()
-	transactor := rdbms.NewTransactor(connectionProvider)
-	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
-	if err := createTable(ctx, connectionProvider, "test1"); err != nil {
-		t.Error(err)
-		return
-	}
-	err := transactor.Required(ctx, func(ctx context.Context) error {
-		client := clientProvider.CurrentClient(ctx)
-		_, err := client.Exec("INSERT into test1 values('1')")
-		return err
-	})
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	userCons := []*sql.DB{userConnection1, userConnection2}
+	guildCons := []*sql.DB{guildConnection1, guildConnection2}
 
-	client := clientProvider.CurrentClient(ctx)
-	rows, err := client.Query("SELECT * FROM test1")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if !rows.Next() {
-		t.Errorf("row must exists")
-		return
-	}
+	return rdbms.NewShardingConnectionProvider(userCons, 127, userShardKeyProvider), rdbms.NewShardingConnectionProvider(guildCons, 127, guildShardKeyProvider), userCons, guildCons
 }
 
-func TestRollbackOnError(t *testing.T) {
-
-	ctx := context.Background()
-	connectionProvider := newConnection()
-	transactor := rdbms.NewTransactor(connectionProvider)
-	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
-	if err := createTable(ctx, connectionProvider, "test2"); err != nil {
-		t.Error(err)
-		return
-	}
-	e := errors.New("error")
-	err := transactor.Required(ctx, func(ctx context.Context) error {
-		client := clientProvider.CurrentClient(ctx)
-		_, err := client.Exec("INSERT into test2 values('1')")
+func createShardingTable(_ context.Context, cons []*sql.DB, name string) error {
+	for _, connection := range cons {
+		_, _ = connection.Exec(fmt.Sprintf("drop table %s", name))
+		_, err := connection.Exec(fmt.Sprintf("create table %s ( id varchar(10))", name))
 		if err != nil {
 			return err
 		}
-		return e
+	}
+	return nil
+}
+
+func TestShardingCommit(t *testing.T) {
+
+	ctx := context.WithValue(context.WithValue(context.Background(), shardKeyUser, "user1"), shardKeyGuild, "guild1")
+	users, guilds, userCons, guildCons := newShardingConnection()
+	userTransactor := rdbms.NewShardingTransactor(users, userShardKeyProvider)
+	guildTransactor := rdbms.NewShardingTransactor(guilds, guildShardKeyProvider)
+	userClientProvider := rdbms.NewShardingDefaultClientProvider(users, userShardKeyProvider)
+	guildClientProvider := rdbms.NewShardingDefaultClientProvider(guilds, guildShardKeyProvider)
+	if err := createShardingTable(ctx, userCons, "user1"); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := createShardingTable(ctx, guildCons, "guild1"); err != nil {
+		t.Error(err)
+		return
+	}
+	transactor := gotx.NewCompositeTransactor(userTransactor, guildTransactor)
+
+	err := transactor.Required(ctx, func(ctx context.Context) error {
+		userClient := userClientProvider.CurrentClient(ctx)
+		guildClient := guildClientProvider.CurrentClient(ctx)
+		if _, err := userClient.Exec("INSERT into user1 values('user1')"); err != nil {
+			return err
+		}
+		if _, err := guildClient.Exec("INSERT into guild1 values('guild1')"); err != nil {
+			return err
+		}
+		return nil
 	})
-	if err != e {
-		t.Error("unexpected error")
-		return
-	}
-	client := clientProvider.CurrentClient(ctx)
-	row, err := client.Query("SELECT * FROM test2")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	if row.Next() {
-		t.Errorf("rollback expected")
-		return
-	}
+	expected(t, true, false, true, false, userCons, guildCons)
 }
 
-func TestRollbackOption(t *testing.T) {
+func TestShardingRollbackOnError(t *testing.T) {
 
-	ctx := context.Background()
-	connectionProvider := newConnection()
-	transactor := rdbms.NewTransactor(connectionProvider)
-	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
-	if err := createTable(ctx, connectionProvider, "test3"); err != nil {
+	ctx := context.WithValue(context.WithValue(context.Background(), shardKeyUser, "user1"), shardKeyGuild, "guild1")
+	users, guilds, userCons, guildCons := newShardingConnection()
+	userTransactor := rdbms.NewShardingTransactor(users, userShardKeyProvider)
+	guildTransactor := rdbms.NewShardingTransactor(guilds, guildShardKeyProvider)
+	userClientProvider := rdbms.NewShardingDefaultClientProvider(users, userShardKeyProvider)
+	guildClientProvider := rdbms.NewShardingDefaultClientProvider(guilds, guildShardKeyProvider)
+	if err := createShardingTable(ctx, userCons, "user1"); err != nil {
 		t.Error(err)
 		return
 	}
+	if err := createShardingTable(ctx, guildCons, "guild1"); err != nil {
+		t.Error(err)
+		return
+	}
+	transactor := gotx.NewCompositeTransactor(userTransactor, guildTransactor)
+
 	err := transactor.Required(ctx, func(ctx context.Context) error {
-		client := clientProvider.CurrentClient(ctx)
-		_, err := client.Exec("INSERT into test3 values('1')")
-		return err
+		userClient := userClientProvider.CurrentClient(ctx)
+		guildClient := guildClientProvider.CurrentClient(ctx)
+		if _, err := userClient.Exec("INSERT into user1 values('user1')"); err != nil {
+			return err
+		}
+		if _, err := guildClient.Exec("INSERT into guild1 values('guild1')"); err != nil {
+			return err
+		}
+		return errors.New("error")
+	})
+	if err == nil {
+		t.Error("must error")
+		return
+	}
+	expected(t, false, false, false, false, userCons, guildCons)
+}
+
+func TestShardingRollbackOption(t *testing.T) {
+
+	ctx := context.WithValue(context.WithValue(context.Background(), shardKeyUser, "user1"), shardKeyGuild, "guild1")
+	users, guilds, userCons, guildCons := newShardingConnection()
+	userTransactor := rdbms.NewShardingTransactor(users, userShardKeyProvider)
+	guildTransactor := rdbms.NewShardingTransactor(guilds, guildShardKeyProvider)
+	userClientProvider := rdbms.NewShardingDefaultClientProvider(users, userShardKeyProvider)
+	guildClientProvider := rdbms.NewShardingDefaultClientProvider(guilds, guildShardKeyProvider)
+	if err := createShardingTable(ctx, userCons, "user1"); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := createShardingTable(ctx, guildCons, "guild1"); err != nil {
+		t.Error(err)
+		return
+	}
+	transactor := gotx.NewCompositeTransactor(userTransactor, guildTransactor)
+
+	err := transactor.Required(ctx, func(ctx context.Context) error {
+		userClient := userClientProvider.CurrentClient(ctx)
+		guildClient := guildClientProvider.CurrentClient(ctx)
+		if _, err := userClient.Exec("INSERT into user1 values('user1')"); err != nil {
+			return err
+		}
+		if _, err := guildClient.Exec("INSERT into guild1 values('guild1')"); err != nil {
+			return err
+		}
+		return nil
 	}, gotx.OptionRollbackOnly())
-
-	// no error expected
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	client := clientProvider.CurrentClient(ctx)
-	row, err := client.Query("SELECT * FROM test3")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	if row.Next() {
-		t.Errorf("rollback expected")
-		return
-	}
+	expected(t, false, false, false, false, userCons, guildCons)
 }
 
-func TestReadOnlyOption(t *testing.T) {
+func TestShardingReadOnlyOption(t *testing.T) {
 
-	ctx := context.Background()
-	connectionProvider := newConnection()
-	transactor := rdbms.NewTransactor(connectionProvider)
-	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
-	if err := createTable(ctx, connectionProvider, "test4"); err != nil {
+	ctx := context.WithValue(context.WithValue(context.Background(), shardKeyUser, "user1"), shardKeyGuild, "guild1")
+	users, guilds, userCons, guildCons := newShardingConnection()
+	userTransactor := rdbms.NewShardingTransactor(users, userShardKeyProvider)
+	guildTransactor := rdbms.NewShardingTransactor(guilds, guildShardKeyProvider)
+	userClientProvider := rdbms.NewShardingDefaultClientProvider(users, userShardKeyProvider)
+	guildClientProvider := rdbms.NewShardingDefaultClientProvider(guilds, guildShardKeyProvider)
+	if err := createShardingTable(ctx, userCons, "user1"); err != nil {
 		t.Error(err)
 		return
 	}
+	if err := createShardingTable(ctx, guildCons, "guild1"); err != nil {
+		t.Error(err)
+		return
+	}
+	transactor := gotx.NewCompositeTransactor(userTransactor, guildTransactor)
+
 	err := transactor.Required(ctx, func(ctx context.Context) error {
-		client := clientProvider.CurrentClient(ctx)
-		_, err := client.Exec("INSERT into test4 values('1')")
-		return err
+		userClient := userClientProvider.CurrentClient(ctx)
+		guildClient := guildClientProvider.CurrentClient(ctx)
+		if _, err := userClient.Exec("INSERT into user1 values('user1')"); err != nil {
+			return err
+		}
+		if _, err := guildClient.Exec("INSERT into guild1 values('guild1')"); err != nil {
+			return err
+		}
+		return nil
 	}, gotx.OptionReadOnly())
 
-	if err == nil || err.Error() != "pq: cannot execute INSERT in a read-only transaction" {
-		t.Errorf("unexpected error %v", err)
+	if err == nil {
+		t.Error("must error")
 		return
 	}
+	expected(t, false, false, false, false, userCons, guildCons)
+}
 
+func expected(t *testing.T, user1Exists bool, user2Exists bool, guild1Exists bool, guild2Exists bool, userCons []*sql.DB, guildCons []*sql.DB) {
+	rows1, err := userCons[0].Query("SELECT * FROM user1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	rows2, err := userCons[1].Query("SELECT * FROM user1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	rows3, err := guildCons[0].Query("SELECT * FROM guild1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	rows4, err := guildCons[1].Query("SELECT * FROM guild1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if user1Exists != rows1.Next() {
+		t.Errorf("row must exists")
+		return
+	}
+	if user2Exists != rows2.Next() {
+		t.Errorf("row must exists")
+		return
+	}
+	if guild1Exists != rows3.Next() {
+		t.Errorf("row must exists")
+		return
+	}
+	if guild2Exists != rows4.Next() {
+		t.Errorf("row must exists")
+		return
+	}
 }

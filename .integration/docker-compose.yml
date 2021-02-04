@@ -6,15 +6,27 @@ services:
     ports:
       - "9020:9020"
       - "9010:9010"
-  redis:
+  redis-shard-1:
     image: redis:5-alpine
     ports:
       - "6379:6379"
-  postgres:
+  redis-shard-2:
+    image: redis:5-alpine
+    ports:
+      - "6380:6379"
+  postgres-shard-1:
     image: postgres:12.3
     ports:
       - "5432:5432"
     environment:
       POSTGRES_DB: testdb
       POSTGRES_PASSWORD: password
+  postgres-shard-2:
+    image: postgres:12.3
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_PASSWORD: password
+
 
