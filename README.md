@@ -206,7 +206,6 @@ func (r *RedisRepository) FindByID(ctx context.Context, userID string) (*model.M
 ```
 
 ### Database Sharding
-
 * Select specified connection from []*sql.DB by the sharding key.
 
 ```go
@@ -218,8 +217,8 @@ func DependencyInjection() {
   }
   // use hash-slot
   userConnectionProvider = gotxrdbms.NewShardingConnectionProvider(userCons, 127, userShardKeyProvider)
-  userTransactor := rdbms.NewShardingTransactor(userConnectionProvider, userShardKeyProvider)
-  userClientProvider := rdbms.NewShardingDefaultClientProvider(userConnectionProvider, userShardKeyProvider)
+  userTransactor := gotxrdbms.NewShardingTransactor(userConnectionProvider, userShardKeyProvider)
+  userClientProvider := gotxrdbms.NewShardingDefaultClientProvider(userConnectionProvider, userShardKeyProvider)
 
   useCase := &MyUseCase{transactor, ...}
 }
@@ -234,27 +233,31 @@ func (u *UseCase) Do(ctx context.Context){
 ```
 
 #### Multiple Database Sharding
-
 * Select specified connection from multiple []*sql.DB by the sharding key.
 * Handle multiple transactions transparently with UseCase.
 * This is not a distributed transaction like XA.
 
 ```go
 func DependencyInjection() {
-	
+  // user shard connections
   var userCons []*sql.DB // create sql.DB for each sharded database
   userShardKeyProvider := func(ctx context.Context) string {
     return ctx.Value(shardKeyUser).(string)
   }
   userConnectionProvider = gotxrdbms.NewShardingConnectionProvider(userCons, 127, userShardKeyProvider)
-  userTransactor := rdbms.NewShardingTransactor(userConnectionProvider, userShardKeyProvider)
-  userClientProvider := rdbms.NewShardingDefaultClientProvider(userConnectionProvider, userShardKeyProvider)
-  
+  userTransactor := gotxrdbms.NewShardingTransactor(userConnectionProvider, userShardKeyProvider)
+  userClientProvider := gotxrdbms.NewShardingDefaultClientProvider(userConnectionProvider, userShardKeyProvider)
+ 
+  // guild shard connections 
   var guildCons []*sql.DB // create sql.DB for each sharded database
   guildShardKeyProvider := func(ctx context.Context) string {
     return ctx.Value(shardKeyGuild).(string)
   }
-  
+  guildConnectionProvider = gotxrdbms.NewShardingConnectionProvider(userCons, 127, guildShardKeyProvider)
+  guildTransactor := gotxrdbms.NewShardingTransactor(guildConnectionProvider, guildShardKeyProvider)
+  guildClientProvider := gotxrdbms.NewShardingDefaultClientProvider(guildConnectionProvider, guildShardKeyProvider)
+
+  // composite transaction
   transaction := gotx.NewCompositeTransactor(userTransactor, guildTransactor)
   useCase := &MyUseCase{transactor, ...}
 }
