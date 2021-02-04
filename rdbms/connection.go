@@ -3,6 +3,7 @@ package rdbms
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/binary"
 )
 
@@ -29,13 +30,13 @@ type ShardKeyProvider func(ctx context.Context) string
 
 // get db by hash slot
 type ShardingConnectionProvider struct {
-	db               []Conn
+	db               []*sql.DB
 	hashSlot         []uint32
 	shardKeyProvider ShardKeyProvider
 	maxSlot          uint32
 }
 
-func NewShardingConnectionProvider(db []Conn, maxSlot uint32, shardKeyProvider ShardKeyProvider) *ShardingConnectionProvider {
+func NewShardingConnectionProvider(db []*sql.DB, maxSlot uint32, shardKeyProvider ShardKeyProvider) *ShardingConnectionProvider {
 	average := maxSlot / uint32(len(db))
 	maxValuePerShard := make([]uint32, len(db))
 	for i := range maxValuePerShard {
