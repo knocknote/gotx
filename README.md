@@ -1,10 +1,12 @@
 # gotx
+
 Go transaction library inspired by Spring Framework that brings you can handle transactions without being aware of the difference in data sources such as spanner, redis or rdbmds
 
 ![CI](https://github.com/knocknote/gotx/workflows/CI/badge.svg?branch=develop)
 
 ## Motivation
-In the architecture of web applications, differences in data sources are absorbed by layers such as Repository and Dao.   
+
+In the architecture of web applications, differences in data sources are absorbed by layers such as Repository and Dao.
 However, transactions straddle Repository and Dao.  
 I created this library from the desire to do simple coding by providing a `Transactor` that absorbs the difference in transaction behavior between data sources such as redis and spanner.
 
@@ -19,11 +21,13 @@ go get github.com/knocknote/gotx@develop
 Install additional libraries depending on the data source you want to use.
 
 ### Google Cloud Spanner
+
 ```sh
 go get github.com/knocknote/gotx/spanner@develop 
 ```
 
 ### Redis
+
 ```sh
 go get github.com/knocknote/gotx/redis@develop 
 ```
@@ -84,9 +88,9 @@ import (
     "database/sql"
     
     "github.com/knocknote/gotx"
-	gotxrdbms "github.com/knocknote/gotx/rdbms"
+    gotxrdbms "github.com/knocknote/gotx/rdbms"
 
-	_ "github.com/lib/pq"
+    _ "github.com/lib/pq"
 )
 
 func DependencyInjection() {
@@ -99,8 +103,8 @@ func DependencyInjection() {
     useCase := &MyUseCase{transactor, repository}
 }
 
-type SpannerRepository {
-    clientProvider: gotxrdbms.ClientProvider
+type RDBRepository struct {
+    clientProvider gotxrdbms.ClientProvider
 }
 
 // Repository is unaware of transactions
@@ -122,7 +126,7 @@ import (
     "cloud.google.com/go/spanner"
     
     "github.com/knocknote/gotx"
-	gotxspanner "github.com/knocknote/gotx/spanner"
+    gotxspanner "github.com/knocknote/gotx/spanner"
 )
 
 func DependencyInjection() {
@@ -135,8 +139,8 @@ func DependencyInjection() {
     useCase := &MyUseCase{transactor, repository}
 }
 
-type SpannerRepository {
-    clientProvider: gotxspanner.ClientProvider
+type SpannerRepository struct {
+    clientProvider gotxspanner.ClientProvider
 }
 
 // Repository is unaware of transactions
@@ -151,14 +155,14 @@ func (r *SpannerRepository) FindByID(ctx context.Context, userID string) (*model
 }
 ```
 
-### Redis 
+### Redis
 
 ```go
 import (
     "github.com/go-redis/redis"
     
     "github.com/knocknote/gotx"
-	gotxredis "github.com/knocknote/gotx/redis"
+    gotxredis "github.com/knocknote/gotx/redis"
 )
 
 func DependencyInjection() {
@@ -175,8 +179,8 @@ func DependencyInjection() {
     useCase := &MyUseCase{transactor, repository}
 }
 
-type RedisRepository {
-    clientProvider: gotxredis.ClientProvider
+type RedisRepository struct {
+    clientProvider gotxredis.ClientProvider
 }
 
 // Repository is unaware of transactions
@@ -194,11 +198,10 @@ func (r *RedisRepository) FindByID(ctx context.Context, userID string) (*model.M
 }
 ```
 
-### Composite Transaction 
+### Composite Transaction
 
 * Handle multiple transactions transparently with UseCase.
 * This is not a distributed transaction like XA.
-
 
 ```go
 func DependencyInjection() {
@@ -228,3 +231,4 @@ func (u *UseCase) Do(ctx context.Context){
     // attention! After the redis transaction ends, if the DB commit fails, redis and DB will not match
     err := u.transactor.Required(ctx, ... 
 ```
+
