@@ -137,6 +137,9 @@ github.com/knocknote/gotx v0.0.0-20210204044612-af73fbbf3691 h1:ApFXrd3EEPJLB80t
 github.com/knocknote/gotx v0.0.0-20210204044612-af73fbbf3691/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
 github.com/knocknote/gotx v0.0.0-20210206101857-9e7a40ed3664 h1:JSJlAGYZQUpiSb9Y/Wot5uH3QOcAkDTVEUPp3Bx2rJk=
 github.com/knocknote/gotx v0.0.0-20210206101857-9e7a40ed3664/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
+github.com/knocknote/gotx v0.0.0-20210206114447-4ce67e986cc0/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
+github.com/knocknote/gotx v0.0.0-20210206114657-acf48e27b4c8 h1:s/6pmfUlF/7oIP5TMt0sTPidQ1U8sQatMgBadiEvxJs=
+github.com/knocknote/gotx v0.0.0-20210206114657-acf48e27b4c8/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
 github.com/knocknote/gotx/redis v0.0.0-20210131104022-fe798c6c495a h1:FfBOtpIZoACApbMNE0kE4ALWtVqkiO1mUtc9ASdd2Mw=
 github.com/knocknote/gotx/redis v0.0.0-20210131104022-fe798c6c495a/go.mod h1:Vzg+kLEuUhgKrUEzRFHO4yafZugs19DUoXKvZEOJrOs=
 github.com/knocknote/gotx/redis v0.0.0-20210204041800-fa138f7a69cc h1:AtaZCLaOXf9sCMZ7Gg5u3R0vHEf/ipvgJk0Zud42gjI=
@@ -149,6 +152,8 @@ github.com/knocknote/gotx/redis v0.0.0-20210204044612-af73fbbf3691 h1:/1semcuq3j
 github.com/knocknote/gotx/redis v0.0.0-20210204044612-af73fbbf3691/go.mod h1:Vzg+kLEuUhgKrUEzRFHO4yafZugs19DUoXKvZEOJrOs=
 github.com/knocknote/gotx/redis v0.0.0-20210206101857-9e7a40ed3664 h1:OsVqFtrJdIcLhg/JCnDkQpLPqDF9yxgz/dOVGvRdu+I=
 github.com/knocknote/gotx/redis v0.0.0-20210206101857-9e7a40ed3664/go.mod h1:Vzg+kLEuUhgKrUEzRFHO4yafZugs19DUoXKvZEOJrOs=
+github.com/knocknote/gotx/redis v0.0.0-20210206114657-acf48e27b4c8 h1:KQwaE7Z9XBn7J3jLuNcOOMG0SfFCCMSLgvmRJKqIv5Q=
+github.com/knocknote/gotx/redis v0.0.0-20210206114657-acf48e27b4c8/go.mod h1:Ex7y7451xO4gdzfqppwnFBAGadw3zIt4xRFXbWYfbEM=
 github.com/knocknote/gotx/spanner v0.0.0-20210202013140-e3e7e9da0af4 h1:jMD+1iwNX4bq4rT2ooiyQPIOTuvxIAwNackGamCM5RA=
 github.com/knocknote/gotx/spanner v0.0.0-20210202013140-e3e7e9da0af4/go.mod h1:isKnm76dsUkmc3OG1Ml4uupaQ4g8GH/GUfOlEVQ8t3c=
 github.com/knocknote/gotx/spanner v0.0.0-20210204041800-fa138f7a69cc h1:NrdjgNh9btvJY2B9ogzKRcEbGD4BHVAmAJulDpzEBu4=

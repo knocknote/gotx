@@ -36,7 +36,7 @@ func newShardingConnection() (rdbms.ConnectionProvider, rdbms.ConnectionProvider
 	userCons := []*sql.DB{userConnection1, userConnection2}
 	guildCons := []*sql.DB{guildConnection1, guildConnection2}
 
-	return rdbms.NewShardingConnectionProvider(userCons, 16383, userShardKeyProvider), rdbms.NewShardingConnectionProvider(guildCons, 127, guildShardKeyProvider), userCons, guildCons
+	return rdbms.NewShardingConnectionProvider(userCons, 16383, userShardKeyProvider), rdbms.NewShardingConnectionProvider(guildCons, 16383, guildShardKeyProvider), userCons, guildCons
 }
 
 func createShardingTable(_ context.Context, cons []*sql.DB, name string) error {
@@ -83,7 +83,7 @@ func TestShardingCommit(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	expected(t, true, false, true, false, userCons, guildCons)
+	expected(t, false, true, false, true, userCons, guildCons)
 }
 
 func TestShardingRollbackOnError(t *testing.T) {
