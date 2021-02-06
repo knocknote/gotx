@@ -18,7 +18,7 @@ I created this library from the desire to do simple coding by providing a `Trans
   <img src="./.img/feature2.png" width="360px"/>
   
 * Write-Through  
-  <img src="./.img/feature2.png" width="360px"/>
+  <img src="./.img/feature3.png" width="360px"/>
 
 ## Installation
 
