@@ -49,6 +49,13 @@ Install additional libraries depending on the data source you want to use.
 | Required| Support a current transaction, create a new one if none exists. |
 | RequiresNew | Create a new transaction, and suspend the current transaction if one exists. |
 
+* Each method has the following options
+
+| Option | Description |
+|--------|----------|
+| ReadOnly | This option makes it a read-only transaction. |
+| RollbackOnly | This option ensures that the transaction rolls back even if it succeeds. Mainly used in test classes. |
+
 ### ConnectionProvider
 * A strategy to get raw connections such as `*spanner.Client` and `*sql.DB`.
 * You can create any ConnectionProvider by implementing the following method.
@@ -68,6 +75,9 @@ Install additional libraries depending on the data source you want to use.
 ## Usage
 
 Here is the sample UseCase or Application Service class.
+* Case 1: use read-write transaction
+* Case 2: use readonly transaction
+* Case 3: no transaction(just call repository method)
 
 ```go
 type MyUseCase struct {
@@ -105,6 +115,8 @@ func (u *MyUseCase) Do(ctx context.Context) error {
 
 ### RDBMS
 
+Here is the sample with using PostgreSQL for datasource.
+
 ```go
 import (
   "context"
@@ -120,9 +132,10 @@ func DependencyInjection() {
   connectionProvider := gotx.NewDefaultConnectionProvider(connection)
   clientProvider := gotx.NewDefaultClientProvider(connectionProvider)
   transactor := gotx.NewTransactor(connectionProvider)
-  
-  repository := &NewRDBRepository(clientProvider)
-  useCase := NewMyUseCase(transactor, repository)
+
+  repository := NewRDBRepository(clientProvider)
+  // MyUseCase code is independent on RDBMS transaction behavior.
+  usecase := NewMyUseCase(transactor, repository)
 }
 
 type RDBRepository struct {
@@ -143,6 +156,9 @@ func (r *RDBRepository) FindByID(ctx context.Context, userID string) (*model.Mod
 
 ### Google Cloud Spanner
 
+* Here is the sample with using Google Cloud Spanner for datasource.
+* UseCase class implementation is independent on Spanner transaction behavior.
+
 ```go
 import (
   "context"
@@ -160,6 +176,7 @@ func DependencyInjection() {
   transactor := gotx.NewTransactor(connectionProvider)
   
   repository := NewSpannerRepository(clientProvider)
+  // MyUseCase code is independent on Spanner transaction behavior.
   useCase := NewMyUseCase(transactor, repository)
 }
 
@@ -190,6 +207,8 @@ func (r *SpannerRepository) Update(ctx context.Context, target *model.Model) err
 
 ### Redis
 
+Here is the sample with using Redis for datasource.
+
 ```go
 import (
   "context"
@@ -209,8 +228,9 @@ func DependencyInjection() {
   clientProvider := gotx.NewDefaultClientProvider(connectionProvider)
   transactor := gotx.NewTransactor(connectionProvider)
 
-  repository := &RedisRepository{clientProvider}
-  useCase := &MyUseCase{transactor, repository}
+  repository := NewRedisRepository(clientProvider)
+  // MyUseCase code is independent on Redis transaction behavior.
+  useCase := NewMyUseCase(transactor, repository)
 }
 
 type RedisRepository struct {
