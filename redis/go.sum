@@ -119,6 +119,10 @@ github.com/knocknote/gotx v0.0.0-20210127040726-eb482dd55088 h1:hvhXMxYjPpj4t5Fk
 github.com/knocknote/gotx v0.0.0-20210127040726-eb482dd55088/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
 github.com/knocknote/gotx v0.0.0-20210127054107-16ce040112af h1:/4Ae5kADf+us1cIeJbn3OBwjcxTLzlgBa/+CtkiUFtc=
 github.com/knocknote/gotx v0.0.0-20210127054107-16ce040112af/go.mod h1:fvF5FOHZzNvjfQdepWIdr3lEBpCHql5tCecqSdV0tBY=
+github.com/knocknote/gotx v0.0.0-20210206104147-9d612d8688df h1:hi7oSA7ARrrYwBicAo+PZL4Lc8G5IAq0/Fy7b4gT5XM=
+github.com/knocknote/gotx v0.0.0-20210206104147-9d612d8688df/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
+github.com/knocknote/gotx v0.0.0-20210206114447-4ce67e986cc0 h1:0L+qK00gvz7bku60XAzbIc8qW+nF5CPOJ4CHO+gp90E=
+github.com/knocknote/gotx v0.0.0-20210206114447-4ce67e986cc0/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=

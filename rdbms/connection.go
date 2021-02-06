@@ -3,7 +3,8 @@ package rdbms
 import (
 	"context"
 	"database/sql"
-	"hash/crc32"
+
+	"github.com/knocknote/gotx"
 )
 
 type ConnectionProvider interface {
@@ -36,26 +37,16 @@ type ShardingConnectionProvider struct {
 }
 
 func NewShardingConnectionProvider(db []*sql.DB, maxSlot uint32, shardKeyProvider ShardKeyProvider) *ShardingConnectionProvider {
-	average := maxSlot / uint32(len(db))
-	maxValuePerShard := make([]uint32, len(db))
-	for i := range maxValuePerShard {
-		maxValuePerShard[i] = average * uint32(i+1)
-	}
 	return &ShardingConnectionProvider{
 		db:               db,
 		shardKeyProvider: shardKeyProvider,
-		hashSlot:         maxValuePerShard,
+		hashSlot:         gotx.GetHashSlotRange(len(db), maxSlot),
 		maxSlot:          maxSlot,
 	}
 }
 
 func (p *ShardingConnectionProvider) CurrentConnection(ctx context.Context) Conn {
 	shardKey := p.shardKeyProvider(ctx)
-	slot := crc32.ChecksumIEEE([]byte(shardKey)) % p.maxSlot
-	for i, v := range p.hashSlot {
-		if slot < v {
-			return p.db[i]
-		}
-	}
-	return nil
+	index := gotx.GetIndexByHash(p.hashSlot, []byte(shardKey), p.maxSlot)
+	return p.db[index]
 }
