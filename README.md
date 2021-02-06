@@ -16,6 +16,9 @@ I created this library from the desire to do simple coding by providing a `Trans
   
 * Database Sharding  
   <img src="./.img/feature2.png" width="360px"/>
+  
+* Write-Through  
+  <img src="./.img/feature2.png" width="360px"/>
 
 ## Installation
 
@@ -27,32 +30,44 @@ go get github.com/knocknote/gotx@develop
 
 Install additional libraries depending on the data source you want to use.
 
-### Google Cloud Spanner
-
-```sh
-go get github.com/knocknote/gotx/spanner@develop 
-```
-
-### Redis
-
-```sh
-go get github.com/knocknote/gotx/redis@develop 
-```
+| DataSource | Command |
+|--------|--------|
+| Google Cloud Spanner | go get github.com/knocknote/gotx/spanner@develop |
+| Redis | go get github.com/knocknote/gotx/redis@develop |
 
 ## API
 
+* gotx has three core interface `Transactor`, `ConnectionProvider`, `ClientProvider`.
+* You can create any transaction behavior by implementing these interfaces.
+
+### Transactor 
 * It provides various methods shown in [Transaction propagation of Spring Framework](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/transaction/annotation/Propagation.html).
 * Currently, only the following methods are supported.
-* You can create any Transactor by implementing Transactor method.
 
 | Method | Description |
 |--------|----------|
-| Required | Support a current transaction, create a new one if none exists. |
+| Required| Support a current transaction, create a new one if none exists. |
 | RequiresNew | Create a new transaction, and suspend the current transaction if one exists. |
+
+### ConnectionProvider
+* A strategy to get raw connections such as `*spanner.Client` and `*sql.DB`.
+* You can create any ConnectionProvider by implementing the following method.
+
+| Method | Description |
+|--------|----------|
+| CurrentConnection | returns raw connections like *spanner.Client or sql.DB |
+
+### ClientProvider
+* Provides client classes for executing queries of rdbms or spanner 
+* You can create any ClientProvider by implementing the following method.
+
+| Method | Description |
+|--------|----------|
+| CurrentClient | returns api for executing query.|
 
 ## Usage
 
-Here is the sample usecase.
+Here is the sample UseCase or Application Service class.
 
 ```go
 type MyUseCase struct {
@@ -62,9 +77,9 @@ type MyUseCase struct {
 
 func (u *MyUseCase) Do(ctx context.Context) error {
 
-  // case 1
+  // Case 1
   tx1Err := u.transactor.Required(ctx, func(ctx context.Context) error {
-    // do in spanner.ReadWriterTransaction
+    // do in transaction
     res, err := u.repository.FindByID(ctx, "A")
     if err != nil {
       return err
@@ -73,16 +88,16 @@ func (u *MyUseCase) Do(ctx context.Context) error {
     return u.repository.Update(ctx, model)
   })
 
-  // case 2
+  // Case 2
   var res model.Model
   tx2Err := u.transactor.Required(ctx, func(ctx context.Context) error {
-    // do in spanner.ReadOnlyTransaction
+    // do in readonly transaction 
     var err error
     res, err = u.repository.FindByID(ctx, "A")
     return err
   }, gotx.OptionReadOnly())
 
-  // case 3
+  // Case 3
   // no transaction     
   model, err := u.repository.FindByID(ctx, "A")
 }
@@ -92,33 +107,33 @@ func (u *MyUseCase) Do(ctx context.Context) error {
 
 ```go
 import (
+  "context"
   "database/sql"
 
-  "github.com/knocknote/gotx"
-  gotxrdbms "github.com/knocknote/gotx/rdbms"
+  gotx "github.com/knocknote/gotx/rdbms"
 
   _ "github.com/lib/pq"
 )
 
 func DependencyInjection() {
-  connection, err := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
-  connectionProvider = gotxrdbms.NewDefaultConnectionProvider(connection)
-  clientProvider := gotxrdbms.NewDefaultClientProvider(connectionProvider)
-  repository := &RDBRepository{clientProvider}
-
-  transactor := gotxrdbms.NewTransactor(connectionProvider)
-  useCase := &MyUseCase{transactor, repository}
+  connection, _ := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
+  connectionProvider := gotx.NewDefaultConnectionProvider(connection)
+  clientProvider := gotx.NewDefaultClientProvider(connectionProvider)
+  transactor := gotx.NewTransactor(connectionProvider)
+  
+  repository := &NewRDBRepository(clientProvider)
+  useCase := NewMyUseCase(transactor, repository)
 }
 
 type RDBRepository struct {
-  clientProvider gotxrdbms.ClientProvider
+  clientProvider gotx.ClientProvider
 }
 
 // Repository is unaware of transactions
 func (r *RDBRepository) FindByID(ctx context.Context, userID string) (*model.Model, error) {
   //Case 1 client is `sql.Tx`
   //Case 2 client is `sql.Tx(readonly)` 
-  //Case 3 client is `sql.DB or interface provided by gotxrdbms.ConnectionProvider `
+  //Case 3 client is `sql.DB or interface provided by gotx.ConnectionProvider `
   client := r.clientProvider.CurrentClient(ctx)
 
   // use ORM like sqlboiler
@@ -130,24 +145,27 @@ func (r *RDBRepository) FindByID(ctx context.Context, userID string) (*model.Mod
 
 ```go
 import (
-  "cloud.google.com/go/spanner"
+  "context"
 
-  "github.com/knocknote/gotx"
-  gotxspanner "github.com/knocknote/gotx/spanner"
+  "cloud.google.com/go/spanner"
+  gotx "github.com/knocknote/gotx/spanner"
+
+  _ "github.com/lib/pq"
 )
 
 func DependencyInjection() {
-  connection, _:= spanner.NewClient(context.Background(),"projects/local-project/instances/test-instance/databases/test-database")
-  connectionProvider = gotxspanner.NewDefaultConnectionProvider(connection)
-  clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
-  repository := &SpannerRepository{clientProvider}
-
-  transactor := gotxspanner.NewTransactor(connectionProvider)
-  useCase := &MyUseCase{transactor, repository}
+  connection, _ := spanner.NewClient(context.Background(), "projects/local-project/instances/test-instance/databases/test-database")
+  connectionProvider := gotx.NewDefaultConnectionProvider(connection)
+  clientProvider := gotx.NewDefaultClientProvider(connectionProvider)
+  transactor := gotx.NewTransactor(connectionProvider)
+  
+  repository := NewSpannerRepository(clientProvider)
+  useCase := NewMyUseCase(transactor, repository)
 }
 
+
 type SpannerRepository struct {
-  clientProvider gotxspanner.ClientProvider
+  clientProvider gotx.ClientProvider
 }
 
 // Repository is unaware of transactions
@@ -155,10 +173,18 @@ func (r *SpannerRepository) FindByID(ctx context.Context, userID string) (*model
   //Case 1 reader is `spanner.ReadWriteTransaction` 
   //Case 2 reader is `spanner.ReadOnlyTransaction` 
   //Case 3 reader is `spanner.ReadOnlyTransaction` (spanner.Client.Single())
-  reader := r.clientProvider.CurrentClient(ctx).Reader()
+  reader := r.clientProvider.CurrentClient(ctx).Reader(ctx)
 
   // use ORM like https://github.com/cloudspannerecosystem/yo
   return model.FindModel(ctx, reader, userID)
+}
+
+func (r *SpannerRepository) Update(ctx context.Context, target *model.Model) error  {
+  client := r.clientProvider.CurrentClient(ctx)
+  //Case 1 use `spanner.Client.BufferWrite(mutations)`
+  //Case 2 returns error
+  //Case 3 use `spanner.Client.Apply(ctx,mutations)`
+  return clieny.ApplyOrBufferWrite(ctx,target.Update(ctx))
 }
 ```
 
@@ -166,10 +192,11 @@ func (r *SpannerRepository) FindByID(ctx context.Context, userID string) (*model
 
 ```go
 import (
+  "context"
+  
   "github.com/go-redis/redis"
 
-  "github.com/knocknote/gotx"
-  gotxredis "github.com/knocknote/gotx/redis"
+  gotx "github.com/knocknote/gotx/redis"
 )
 
 func DependencyInjection() {
@@ -177,17 +204,17 @@ func DependencyInjection() {
     Addr:     "localhost:6379",
     Password: "",
     DB:       0,
-  })
-  connectionProvider = gotxredis.NewDefaultConnectionProvider(connection)
-  clientProvider := gotxredis.NewDefaultClientProvider(connectionProvider)
-  repository := &RedisRepository{clientProvider}
+   })
+  connectionProvider := gotx.NewDefaultConnectionProvider(connection)
+  clientProvider := gotx.NewDefaultClientProvider(connectionProvider)
+  transactor := gotx.NewTransactor(connectionProvider)
 
-  transactor := gotxredis.NewTransactor(connectionProvider)
+  repository := &RedisRepository{clientProvider}
   useCase := &MyUseCase{transactor, repository}
 }
 
 type RedisRepository struct {
-  clientProvider gotxredis.ClientProvider
+  clientProvider gotx.ClientProvider
 }
 
 // Repository is unaware of transactions
@@ -195,7 +222,7 @@ func (r *RedisRepository) FindByID(ctx context.Context, userID string) (*model.M
   //Case 1 reader is `redis.Client` and writer is `redis.Pipeliner` 
   //Case 2 reader is `redis.Client` and writer is `redis.Pipeliner` read only option is unsupported 
   //Case 3 reader and writer is `redis.Client`
-  reader, writer := r.clientProvider.CurrentClient(ctx).Reader()
+  reader, writer := r.clientProvider.CurrentClient(ctx)
 
   // calling `writer.Get` returns empty result in `redis.TxPipelined` so use reader to use get item.
   val, err := reader.Get(userID).Result()
@@ -207,67 +234,96 @@ func (r *RedisRepository) FindByID(ctx context.Context, userID string) (*model.M
 
 ### Database Sharding
 * Select specified connection from []*sql.DB by the sharding key.
+* Use `ShardingConnectionProvider` to get the sql.DB determined by the hash slot.
 
 ```go
+import (
+  "context"
+  "database/sql"
+
+  gotx "github.com/knocknote/gotx/rdbms"
+)
+
+type shardKey string
+
+var shardKeyUser shardKey = "userID"
+
 func DependencyInjection() {
-	
   var userCons []*sql.DB // create sql.DB for each sharded database
   userShardKeyProvider := func(ctx context.Context) string {
     return ctx.Value(shardKeyUser).(string)
   }
   // use hash-slot
-  userConnectionProvider = gotxrdbms.NewShardingConnectionProvider(userCons, 127, userShardKeyProvider)
-  userTransactor := gotxrdbms.NewShardingTransactor(userConnectionProvider, userShardKeyProvider)
-  userClientProvider := gotxrdbms.NewShardingDefaultClientProvider(userConnectionProvider, userShardKeyProvider)
+  userConnectionProvider := gotx.NewShardingConnectionProvider(userCons, 127, userShardKeyProvider)
+  userTransactor := gotx.NewShardingTransactor(userConnectionProvider, userShardKeyProvider)
+  userClientProvider := gotx.NewShardingDefaultClientProvider(userConnectionProvider, userShardKeyProvider)
 
-  useCase := &MyUseCase{transactor, ...}
+  repository := NewSpannerRepository(userClientProvider)
+  usecase := NewMyUseCase(userTransactor, repository)
 }
 
-func (u *UseCase) Do(ctx context.Context){
-  var userID
-  err := u.transactor.Required(context.WithValue(ctx, shardKeyUser, userID), func(ctx context.Context){
-  	// in target shard transaction scope
-  	u.repostiory.Update(ctx, model)
-  })	
+func (u *UseCase) Do(ctx context.Context) error{
+  userID := "test"
+  return u.transactor.Required(context.WithValue(ctx, shardKeyUser, userID), func(ctx context.Context){
+    // in target shard transaction scope 
+    return u.repostiory.Update(ctx, model)
+  })
 }
 ```
 
 #### Multiple Database Sharding
 * Select specified connection from multiple []*sql.DB by the sharding key.
-* Handle multiple transactions transparently with UseCase.
+* Use `CompositeTransactor` to handle multiple transactions transparently with UseCase.
 * This is not a distributed transaction like XA.
 
 ```go
+import (
+  "context"
+  "database/sql"
+
+  "github.com/knocknote/gotx"
+  gotxrdbms "github.com/knocknote/gotx/rdbms"
+)
+
+type shardKey string
+
+var shardKeyUser shardKey = "userID"
+var shardKeyGuild shardKey = "guildID"
+
 func DependencyInjection() {
   // user shard connections
   var userCons []*sql.DB // create sql.DB for each sharded database
   userShardKeyProvider := func(ctx context.Context) string {
     return ctx.Value(shardKeyUser).(string)
   }
-  userConnectionProvider = gotxrdbms.NewShardingConnectionProvider(userCons, 127, userShardKeyProvider)
+  userConnectionProvider := gotxrdbms.NewShardingConnectionProvider(userCons, 127, userShardKeyProvider)
   userTransactor := gotxrdbms.NewShardingTransactor(userConnectionProvider, userShardKeyProvider)
   userClientProvider := gotxrdbms.NewShardingDefaultClientProvider(userConnectionProvider, userShardKeyProvider)
- 
-  // guild shard connections 
+
+  // guild shard connections
   var guildCons []*sql.DB // create sql.DB for each sharded database
   guildShardKeyProvider := func(ctx context.Context) string {
     return ctx.Value(shardKeyGuild).(string)
   }
-  guildConnectionProvider = gotxrdbms.NewShardingConnectionProvider(userCons, 127, guildShardKeyProvider)
+  guildConnectionProvider := gotxrdbms.NewShardingConnectionProvider(guildCons, 127, guildShardKeyProvider)
   guildTransactor := gotxrdbms.NewShardingTransactor(guildConnectionProvider, guildShardKeyProvider)
   guildClientProvider := gotxrdbms.NewShardingDefaultClientProvider(guildConnectionProvider, guildShardKeyProvider)
 
   // composite transaction
-  transaction := gotx.NewCompositeTransactor(userTransactor, guildTransactor)
-  useCase := &MyUseCase{transactor, ...}
+  userRepository := NewUserRepository(userClientProvider)
+  guildRepository := NewGuildRepository(guildClientProvider)
+  transactor := gotxrdbms.NewCompositeTransactor(userTransactor, guildTransactor)
+  usecase := NewMyUseCase(transactor, userRepository,guildRepository)
 }
 
-func (u *UseCase) Do(ctx context.Context) {
-  childCtx = context.WithValue(context.WithValue(ctx, shardKeyUser, "userID"), shardKeyGuild, "guildID")
-  err := u.transactor.Required(childCtx, func(ctx context.Context) error {
+func (u *UseCase) Do(ctx context.Context) error {
+  childCtx := context.WithValue(context.WithValue(ctx, shardKeyUser, "userID"), shardKeyGuild, "guildID")
+  return u.transactor.Required(childCtx, func(ctx context.Context) error {
     // in target shard transaction scope. ( one guild Tx and one user Tx begins. )
-    u.guildRepostiory.Update(ctx, guildModel)
-    u.userRepostiory.Update(ctx, userModel)
+    if err := u.guildRepostiory.Update(ctx, guildModel); err != nil {
+      return err
+    }
+    return u.userRepostiory.Update(ctx, userModel)
   }
 } 
 ```
