@@ -36,7 +36,7 @@ Install additional libraries depending on the data source you want to use.
 
 ## API
 
-* gotx has three core interface `Transactor`, `ConnectionProvider`, `ClientProvider`.
+* gotx has three core interfaces `Transactor`, `ConnectionProvider`, `ClientProvider`.
 * You can create any transaction behavior by implementing these interfaces.
 
 ### Transactor 
@@ -48,7 +48,7 @@ Install additional libraries depending on the data source you want to use.
 | Required| Support a current transaction, create a new one if none exists. |
 | RequiresNew | Create a new transaction, and suspend the current transaction if one exists. |
 
-* Each method has the following options
+* Each method has the following options.
 
 | Option | Description |
 |--------|----------|
@@ -61,10 +61,10 @@ Install additional libraries depending on the data source you want to use.
 
 | Method | Description |
 |--------|----------|
-| CurrentConnection | returns raw connections like *spanner.Client or sql.DB |
+| CurrentConnection | returns raw connections like spanner.Client or sql.DB |
 
 ### ClientProvider
-* Provides client classes for executing queries of rdbms or spanner 
+* Provides client classes for executing queries of rdbms or spanner .
 * You can create any ClientProvider by implementing the following method.
 
 | Method | Description |
@@ -73,7 +73,7 @@ Install additional libraries depending on the data source you want to use.
 
 ## Usage
 
-Here is the sample UseCase or Application Service class.
+Here is the sample UseCase class.
 * Case 1: use read-write transaction
 * Case 2: use readonly transaction
 * Case 3: no transaction(just call repository method)
@@ -178,7 +178,6 @@ func DependencyInjection() {
   // MyUseCase code is independent on Spanner transaction behavior.
   useCase := NewMyUseCase(transactor, repository)
 }
-
 
 type SpannerRepository struct {
   clientProvider gotx.ClientProvider
@@ -336,7 +335,9 @@ func DependencyInjection() {
 }
 
 func (u *UseCase) Do(ctx context.Context) error {
+	
   childCtx := context.WithValue(context.WithValue(ctx, shardKeyUser, "userID"), shardKeyGuild, "guildID")
+  
   return u.transactor.Required(childCtx, func(ctx context.Context) error {
     // in target shard transaction scope. ( one guild Tx and one user Tx begins. )
     if err := u.guildRepostiory.Update(ctx, guildModel); err != nil {
@@ -345,4 +346,31 @@ func (u *UseCase) Do(ctx context.Context) error {
     return u.userRepostiory.Update(ctx, userModel)
   }
 } 
+```
+
+### Force rollback during test
+
+You can always roll back the test DB only for unit tests without changing the production code.
+
+```go
+func Test_Success(t *testing.T) {
+
+  // construct test target 
+  transactor := gotx.NewTransactor(...)
+  useCase := NewUserCase(transactor,repository)
+ 
+  // execute test in rollback-only transaction
+  err := transactor.Required(ctx, func(ctx context.Context) error { 
+    model, err := useCase.Do(ctx)
+    if err != nil {
+    	return err
+    }
+    // assert updated data in database or return value
+  }, gotx.OptionRollbackOnly()) // <- rollback only option
+  
+  if err != nil {
+    t.Error(err)
+  }
+}
+
 ```
