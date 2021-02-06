@@ -22,12 +22,11 @@ I created this library from the desire to do simple coding by providing a `Trans
 
 ## Installation
 
-This library is currently in alpha version.
-
 ```sh
 go get github.com/knocknote/gotx@develop 
 ```
 
+The standard library only supports RDBMS.  
 Install additional libraries depending on the data source you want to use.
 
 | DataSource | Command |
