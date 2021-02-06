@@ -2,9 +2,8 @@ package rdbms
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/binary"
+	"hash/crc32"
 )
 
 type ConnectionProvider interface {
@@ -52,9 +51,7 @@ func NewShardingConnectionProvider(db []*sql.DB, maxSlot uint32, shardKeyProvide
 
 func (p *ShardingConnectionProvider) CurrentConnection(ctx context.Context) Conn {
 	shardKey := p.shardKeyProvider(ctx)
-	hashByte := sha256.Sum256([]byte(shardKey))
-	hashInt := binary.BigEndian.Uint32(hashByte[:])
-	slot := hashInt % p.maxSlot
+	slot := crc32.ChecksumIEEE([]byte(shardKey)) % p.maxSlot
 	for i, v := range p.hashSlot {
 		if slot < v {
 			return p.db[i]

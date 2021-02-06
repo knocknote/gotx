@@ -2,8 +2,7 @@ package redis
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/binary"
+	"hash/crc32"
 
 	"github.com/go-redis/redis"
 )
@@ -51,9 +50,7 @@ func NewShardingConnectionProvider(db []*redis.Client, maxSlot uint32, shardKeyP
 
 func (p *ShardingConnectionProvider) CurrentConnection(ctx context.Context) *redis.Client {
 	shardKey := p.shardKeyProvider(ctx)
-	hashByte := sha256.Sum256([]byte(shardKey))
-	hashInt := binary.BigEndian.Uint32(hashByte[:])
-	slot := hashInt % p.maxSlot
+	slot := crc32.ChecksumIEEE([]byte(shardKey)) % p.maxSlot
 	for i, v := range p.hashSlot {
 		if slot < v {
 			return p.db[i]
