@@ -135,6 +135,8 @@ github.com/knocknote/gotx v0.0.0-20210204042947-ffbf92ba00db h1:RKw/y5CvARDPhTKH
 github.com/knocknote/gotx v0.0.0-20210204042947-ffbf92ba00db/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
 github.com/knocknote/gotx v0.0.0-20210204044612-af73fbbf3691 h1:ApFXrd3EEPJLB80tf1Cm4PcKYXWx8MiRlfne2Nn5W/0=
 github.com/knocknote/gotx v0.0.0-20210204044612-af73fbbf3691/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
+github.com/knocknote/gotx v0.0.0-20210206101857-9e7a40ed3664 h1:JSJlAGYZQUpiSb9Y/Wot5uH3QOcAkDTVEUPp3Bx2rJk=
+github.com/knocknote/gotx v0.0.0-20210206101857-9e7a40ed3664/go.mod h1:xiHqYzyRslxrA/d/J5HuCNVRtT/6VE6u+4930rMqMFo=
 github.com/knocknote/gotx/redis v0.0.0-20210131104022-fe798c6c495a h1:FfBOtpIZoACApbMNE0kE4ALWtVqkiO1mUtc9ASdd2Mw=
 github.com/knocknote/gotx/redis v0.0.0-20210131104022-fe798c6c495a/go.mod h1:Vzg+kLEuUhgKrUEzRFHO4yafZugs19DUoXKvZEOJrOs=
 github.com/knocknote/gotx/redis v0.0.0-20210204041800-fa138f7a69cc h1:AtaZCLaOXf9sCMZ7Gg5u3R0vHEf/ipvgJk0Zud42gjI=
@@ -145,6 +147,8 @@ github.com/knocknote/gotx/redis v0.0.0-20210204042947-ffbf92ba00db h1:hMVEY06lbV
 github.com/knocknote/gotx/redis v0.0.0-20210204042947-ffbf92ba00db/go.mod h1:Vzg+kLEuUhgKrUEzRFHO4yafZugs19DUoXKvZEOJrOs=
 github.com/knocknote/gotx/redis v0.0.0-20210204044612-af73fbbf3691 h1:/1semcuq3jDzx7zKroXh+clqfacytj4eLqHB3C2o6Yo=
 github.com/knocknote/gotx/redis v0.0.0-20210204044612-af73fbbf3691/go.mod h1:Vzg+kLEuUhgKrUEzRFHO4yafZugs19DUoXKvZEOJrOs=
+github.com/knocknote/gotx/redis v0.0.0-20210206101857-9e7a40ed3664 h1:OsVqFtrJdIcLhg/JCnDkQpLPqDF9yxgz/dOVGvRdu+I=
+github.com/knocknote/gotx/redis v0.0.0-20210206101857-9e7a40ed3664/go.mod h1:Vzg+kLEuUhgKrUEzRFHO4yafZugs19DUoXKvZEOJrOs=
 github.com/knocknote/gotx/spanner v0.0.0-20210202013140-e3e7e9da0af4 h1:jMD+1iwNX4bq4rT2ooiyQPIOTuvxIAwNackGamCM5RA=
 github.com/knocknote/gotx/spanner v0.0.0-20210202013140-e3e7e9da0af4/go.mod h1:isKnm76dsUkmc3OG1Ml4uupaQ4g8GH/GUfOlEVQ8t3c=
 github.com/knocknote/gotx/spanner v0.0.0-20210204041800-fa138f7a69cc h1:NrdjgNh9btvJY2B9ogzKRcEbGD4BHVAmAJulDpzEBu4=

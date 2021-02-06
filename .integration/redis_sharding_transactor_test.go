@@ -29,7 +29,7 @@ func newShardingRedisConnection() (gotxredis.ConnectionProvider, []*redis.Client
 	_ = client1.Del(testKey)
 	_ = client2.Del(testKey)
 	pools := []*redis.Client{client1, client2}
-	connectionProvider := gotxredis.NewShardingConnectionProvider(pools, 127, userShardKeyProvider)
+	connectionProvider := gotxredis.NewShardingConnectionProvider(pools, 16383, userShardKeyProvider)
 	return connectionProvider, pools
 }
 
