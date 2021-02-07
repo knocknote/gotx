@@ -62,6 +62,41 @@ func TestCommit(t *testing.T) {
 	}
 }
 
+func TestRequiresNew(t *testing.T) {
+
+	ctx := context.Background()
+	connectionProvider := newConnection()
+	transactor := rdbms.NewTransactor(connectionProvider)
+	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
+	if err := createTable(ctx, connectionProvider, "test5"); err != nil {
+		t.Error(err)
+		return
+	}
+	_ = transactor.RequiresNew(ctx, func(ctx context.Context) error {
+		client := clientProvider.CurrentClient(ctx)
+		_, _ = client.Exec("INSERT into test5 values('1')")
+		_ = transactor.RequiresNew(ctx, func(ctx context.Context) error {
+			client2 := clientProvider.CurrentClient(ctx)
+			_, _ = client2.Exec("INSERT into test5 values('2')")
+			return nil
+		})
+		return errors.New("outer transaction failed")
+	})
+
+	client := clientProvider.CurrentClient(ctx)
+	var id string
+	err := client.QueryRow("SELECT id FROM test5 where id = '1'").Scan(&id)
+	if err == nil {
+		t.Error("id 1 must be rollback")
+		return
+	}
+	err = client.QueryRow("SELECT * FROM test5 where id = '2'").Scan(&id)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+}
+
 func TestRollbackOnError(t *testing.T) {
 
 	ctx := context.Background()

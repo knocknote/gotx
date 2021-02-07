@@ -156,7 +156,7 @@ func (r *RDBRepository) FindByID(ctx context.Context, userID string) (*model.Mod
 ### Google Cloud Spanner
 
 * Here is the sample with using Google Cloud Spanner for datasource.
-* UseCase class implementation is independent on Spanner transaction behavior.
+* Cloud Spanner does not support nested transactions. So don't use `transactor.RequiresNew`.
 
 ```go
 import (
