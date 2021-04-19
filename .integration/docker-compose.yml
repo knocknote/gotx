@@ -8,8 +8,6 @@ services:
       - "9010:9010"
   spanner-init:
     image: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
-    networks:
-      - scarlet
     links:
       - spanner
     command: >
