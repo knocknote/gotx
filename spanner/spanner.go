@@ -1,12 +1,42 @@
-package spanner
+package gotx
 
 import (
 	"context"
 	"errors"
 
+	"github.com/knocknote/gotx"
+
 	"cloud.google.com/go/spanner"
 )
 
+type contextCurrentTransactionKey string
+
+const currentTransactionKey contextCurrentTransactionKey = "current_spanner_transaction"
+
+// ------------------------------------
+// Connection
+// ------------------------------------
+type ConnectionProvider interface {
+	CurrentConnection(ctx context.Context) *spanner.Client
+}
+
+type DefaultConnectionProvider struct {
+	client *spanner.Client
+}
+
+func NewDefaultConnectionProvider(client *spanner.Client) ConnectionProvider {
+	return &DefaultConnectionProvider{
+		client: client,
+	}
+}
+
+func (p *DefaultConnectionProvider) CurrentConnection(_ context.Context) *spanner.Client {
+	return p.client
+}
+
+// ------------------------------------
+// Client
+// ------------------------------------
 type Reader interface {
 	Read(ctx context.Context, table string, keys spanner.KeySet, columns []string) *spanner.RowIterator
 	ReadUsingIndex(ctx context.Context, table, index string, keys spanner.KeySet, columns []string) (ri *spanner.RowIterator)
@@ -110,15 +140,11 @@ type ClientProvider interface {
 	CurrentClient(ctx context.Context) Client
 }
 
-type contextCurrentTransactionKey string
-
-const currentTransactionKey contextCurrentTransactionKey = "current_spanner_transaction"
-
 type DefaultClientProvider struct {
 	connectionProvider ConnectionProvider
 }
 
-func NewDefaultClientProvider(connectionProvider ConnectionProvider) *DefaultClientProvider {
+func NewDefaultClientProvider(connectionProvider ConnectionProvider) ClientProvider {
 	return &DefaultClientProvider{
 		connectionProvider: connectionProvider,
 	}
@@ -130,4 +156,58 @@ func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
 		return NewDefaultTxClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
 	}
 	return transaction.(Client)
+}
+
+// ------------------------------------
+// Transactor
+// ------------------------------------
+type Transactor struct {
+	provider ConnectionProvider
+}
+
+func NewTransactor(provider ConnectionProvider) gotx.Transactor {
+	return &Transactor{
+		provider: provider,
+	}
+}
+
+func (t *Transactor) Required(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
+	if ctx.Value(currentTransactionKey) != nil {
+		return fn(ctx)
+	}
+	return t.RequiresNew(ctx, fn, options...)
+}
+
+var rollbackOnly = errors.New("rollback only transaction")
+
+func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
+
+	config := gotx.NewDefaultConfig()
+	for _, opt := range options {
+		opt.Apply(&config)
+	}
+
+	spannerClient := t.provider.CurrentConnection(ctx)
+	if config.ReadOnly {
+		txn := spannerClient.ReadOnlyTransaction()
+		defer txn.Close()
+		executor := NewDefaultTxClient(spannerClient, nil, txn)
+		return fn(context.WithValue(ctx, currentTransactionKey, executor))
+	}
+	_, err := spannerClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		executor := NewDefaultTxClient(spannerClient, txn, nil)
+		err := fn(context.WithValue(ctx, currentTransactionKey, executor))
+		if err != nil {
+			return err
+		}
+		if config.RollbackOnly {
+			return rollbackOnly
+		}
+		return nil
+	})
+	// rollback only transaction
+	if err != nil && errors.Is(err, rollbackOnly) {
+		return nil
+	}
+	return err
 }

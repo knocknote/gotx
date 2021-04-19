@@ -9,7 +9,7 @@ import (
 
 	"github.com/knocknote/gotx"
 
-	"github.com/knocknote/gotx/rdbms"
+	rdbms "github.com/knocknote/gotx/rdbms"
 
 	_ "github.com/lib/pq"
 )

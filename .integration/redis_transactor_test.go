@@ -11,7 +11,7 @@ import (
 	"github.com/go-redis/redis"
 )
 
-func newTransactor() (*gotxredis.Transactor, gotxredis.ClientProvider) {
+func newTransactor() (gotx.Transactor, gotxredis.ClientProvider) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
