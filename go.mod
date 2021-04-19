@@ -5,5 +5,4 @@ go 1.15
 require (
 	cloud.google.com/go/spanner v1.17.0
 	github.com/go-redis/redis v6.15.9+incompatible
-	github.com/lib/pq v1.10.0 // indirect
 )
