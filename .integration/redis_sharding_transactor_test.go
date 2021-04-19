@@ -7,15 +7,13 @@ import (
 
 	"github.com/knocknote/gotx"
 
-	gotxredis "github.com/knocknote/gotx/redis"
-
 	"github.com/go-redis/redis"
 )
 
 const testKey = "test_key1"
 const testValue = "test_value"
 
-func newShardingRedisConnection() (gotxredis.ConnectionProvider, []*redis.Client) {
+func newShardingRedisConnection() (gotx.RedisConnectionProvider, []*redis.Client) {
 	client1 := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
@@ -29,7 +27,7 @@ func newShardingRedisConnection() (gotxredis.ConnectionProvider, []*redis.Client
 	_ = client1.Del(testKey)
 	_ = client2.Del(testKey)
 	pools := []*redis.Client{client1, client2}
-	connectionProvider := gotxredis.NewShardingConnectionProvider(pools, 16383, userShardKeyProvider)
+	connectionProvider := gotx.NewShardingRedisConnectionProvider(pools, 16383, userShardKeyProvider)
 	return connectionProvider, pools
 }
 
@@ -37,8 +35,8 @@ func TestRedisShardingCommit(t *testing.T) {
 
 	connectionProvider, pools := newShardingRedisConnection()
 	ctx := context.WithValue(context.Background(), shardKeyUser, "user2")
-	transactor := gotxredis.NewShardingTransactor(connectionProvider, userShardKeyProvider)
-	clientProvider := gotxredis.NewShardingDefaultClientProvider(connectionProvider, userShardKeyProvider)
+	transactor := gotx.NewShardingRedisTransactor(connectionProvider, userShardKeyProvider)
+	clientProvider := gotx.NewShardingRedisClientProvider(connectionProvider, userShardKeyProvider)
 	err := transactor.Required(ctx, func(ctx context.Context) error {
 		_, writer := clientProvider.CurrentClient(ctx)
 		return writer.Set(testKey, testValue, -1).Err()
@@ -54,8 +52,8 @@ func TestRedisShardingRollbackOnError(t *testing.T) {
 
 	connectionProvider, pools := newShardingRedisConnection()
 	ctx := context.WithValue(context.Background(), shardKeyUser, "user2")
-	transactor := gotxredis.NewShardingTransactor(connectionProvider, userShardKeyProvider)
-	clientProvider := gotxredis.NewShardingDefaultClientProvider(connectionProvider, userShardKeyProvider)
+	transactor := gotx.NewShardingRedisTransactor(connectionProvider, userShardKeyProvider)
+	clientProvider := gotx.NewShardingRedisClientProvider(connectionProvider, userShardKeyProvider)
 	err := transactor.Required(ctx, func(ctx context.Context) error {
 		_, writer := clientProvider.CurrentClient(ctx)
 		_ = writer.Set(testKey, testValue, -1).Err()
@@ -72,8 +70,8 @@ func TestRedisShardingRollbackOnOption(t *testing.T) {
 
 	connectionProvider, pools := newShardingRedisConnection()
 	ctx := context.WithValue(context.Background(), shardKeyUser, "user2")
-	transactor := gotxredis.NewShardingTransactor(connectionProvider, userShardKeyProvider)
-	clientProvider := gotxredis.NewShardingDefaultClientProvider(connectionProvider, userShardKeyProvider)
+	transactor := gotx.NewShardingRedisTransactor(connectionProvider, userShardKeyProvider)
+	clientProvider := gotx.NewShardingRedisClientProvider(connectionProvider, userShardKeyProvider)
 	err := transactor.Required(ctx, func(ctx context.Context) error {
 		_, writer := clientProvider.CurrentClient(ctx)
 		return writer.Set(testKey, testValue, -1).Err()

@@ -9,21 +9,19 @@ import (
 
 	"github.com/knocknote/gotx"
 
-	"github.com/knocknote/gotx/rdbms"
-
 	_ "github.com/lib/pq"
 )
 
-func newConnection() rdbms.ConnectionProvider {
+func newConnection() gotx.RdbmsConnectionProvider {
 	connection, err := sql.Open("postgres", "postgres://postgres:password@localhost/testdb?sslmode=disable")
 	if err != nil {
 		fmt.Printf("open error %v", err)
 		return nil
 	}
-	return rdbms.NewDefaultConnectionProvider(connection)
+	return gotx.NewDefaultRdbmsConnectionProvider(connection)
 }
 
-func createTable(ctx context.Context, connectionProvider rdbms.ConnectionProvider, name string) error {
+func createTable(ctx context.Context, connectionProvider gotx.RdbmsConnectionProvider, name string) error {
 	connection := connectionProvider.CurrentConnection(ctx)
 	_, _ = connection.Exec(fmt.Sprintf("drop table %s", name))
 	_, err := connection.Exec(fmt.Sprintf("create table %s ( id varchar(10))", name))
@@ -34,8 +32,8 @@ func TestCommit(t *testing.T) {
 
 	ctx := context.Background()
 	connectionProvider := newConnection()
-	transactor := rdbms.NewTransactor(connectionProvider)
-	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
+	transactor := gotx.NewRdbmsTransactor(connectionProvider)
+	clientProvider := gotx.NewDefaultRdbmsClientProvider(connectionProvider)
 	if err := createTable(ctx, connectionProvider, "test1"); err != nil {
 		t.Error(err)
 		return
@@ -66,8 +64,8 @@ func TestRequiresNew(t *testing.T) {
 
 	ctx := context.Background()
 	connectionProvider := newConnection()
-	transactor := rdbms.NewTransactor(connectionProvider)
-	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
+	transactor := gotx.NewRdbmsTransactor(connectionProvider)
+	clientProvider := gotx.NewDefaultRdbmsClientProvider(connectionProvider)
 	if err := createTable(ctx, connectionProvider, "test5"); err != nil {
 		t.Error(err)
 		return
@@ -101,8 +99,8 @@ func TestRollbackOnError(t *testing.T) {
 
 	ctx := context.Background()
 	connectionProvider := newConnection()
-	transactor := rdbms.NewTransactor(connectionProvider)
-	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
+	transactor := gotx.NewRdbmsTransactor(connectionProvider)
+	clientProvider := gotx.NewDefaultRdbmsClientProvider(connectionProvider)
 	if err := createTable(ctx, connectionProvider, "test2"); err != nil {
 		t.Error(err)
 		return
@@ -136,8 +134,8 @@ func TestRollbackOption(t *testing.T) {
 
 	ctx := context.Background()
 	connectionProvider := newConnection()
-	transactor := rdbms.NewTransactor(connectionProvider)
-	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
+	transactor := gotx.NewRdbmsTransactor(connectionProvider)
+	clientProvider := gotx.NewDefaultRdbmsClientProvider(connectionProvider)
 	if err := createTable(ctx, connectionProvider, "test3"); err != nil {
 		t.Error(err)
 		return
@@ -169,8 +167,8 @@ func TestReadOnlyOption(t *testing.T) {
 
 	ctx := context.Background()
 	connectionProvider := newConnection()
-	transactor := rdbms.NewTransactor(connectionProvider)
-	clientProvider := rdbms.NewDefaultClientProvider(connectionProvider)
+	transactor := gotx.NewRdbmsTransactor(connectionProvider)
+	clientProvider := gotx.NewDefaultRdbmsClientProvider(connectionProvider)
 	if err := createTable(ctx, connectionProvider, "test4"); err != nil {
 		t.Error(err)
 		return

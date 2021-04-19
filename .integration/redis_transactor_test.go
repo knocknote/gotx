@@ -6,20 +6,19 @@ import (
 	"testing"
 
 	"github.com/knocknote/gotx"
-	gotxredis "github.com/knocknote/gotx/redis"
 
 	"github.com/go-redis/redis"
 )
 
-func newTransactor() (*gotxredis.Transactor, gotxredis.ClientProvider) {
+func newTransactor() (gotx.Transactor, gotx.RedisClientProvider) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
 		DB:       0,
 	})
-	connectionProvider := gotxredis.NewDefaultConnectionProvider(client)
-	clientProvider := gotxredis.NewDefaultClientProvider(connectionProvider)
-	transactor := gotxredis.NewTransactor(connectionProvider)
+	connectionProvider := gotx.NewDefaultRedisConnectionProvider(client)
+	clientProvider := gotx.NewDefaultRedisClientProvider(connectionProvider)
+	transactor := gotx.NewRedisTransactor(connectionProvider)
 	return transactor, clientProvider
 }
 

@@ -9,8 +9,6 @@ import (
 
 	"github.com/knocknote/gotx"
 
-	"github.com/knocknote/gotx/rdbms"
-
 	_ "github.com/lib/pq"
 )
 
@@ -27,7 +25,7 @@ var guildShardKeyProvider = func(ctx context.Context) string {
 	return ctx.Value(shardKeyGuild).(string)
 }
 
-func newShardingConnection() (rdbms.ConnectionProvider, rdbms.ConnectionProvider, []*sql.DB, []*sql.DB) {
+func newShardingConnection() (gotx.RdbmsConnectionProvider, gotx.RdbmsConnectionProvider, []*sql.DB, []*sql.DB) {
 	userConnection1, _ := sql.Open("postgres", "postgres://postgres:password@localhost:5432/testdb?sslmode=disable")
 	userConnection2, _ := sql.Open("postgres", "postgres://postgres:password@localhost:5433/testdb?sslmode=disable")
 	guildConnection1, _ := sql.Open("postgres", "postgres://postgres:password@localhost:5432/testdb?sslmode=disable")
@@ -36,7 +34,7 @@ func newShardingConnection() (rdbms.ConnectionProvider, rdbms.ConnectionProvider
 	userCons := []*sql.DB{userConnection1, userConnection2}
 	guildCons := []*sql.DB{guildConnection1, guildConnection2}
 
-	return rdbms.NewShardingConnectionProvider(userCons, 16383, userShardKeyProvider), rdbms.NewShardingConnectionProvider(guildCons, 16383, guildShardKeyProvider), userCons, guildCons
+	return gotx.NewShardingRdbmsConnectionProvider(userCons, 16383, userShardKeyProvider), gotx.NewShardingRdbmsConnectionProvider(guildCons, 16383, guildShardKeyProvider), userCons, guildCons
 }
 
 func createShardingTable(_ context.Context, cons []*sql.DB, name string) error {
@@ -54,10 +52,10 @@ func TestShardingCommit(t *testing.T) {
 
 	ctx := context.WithValue(context.WithValue(context.Background(), shardKeyUser, "user1"), shardKeyGuild, "guild1")
 	users, guilds, userCons, guildCons := newShardingConnection()
-	userTransactor := rdbms.NewShardingTransactor(users, userShardKeyProvider)
-	guildTransactor := rdbms.NewShardingTransactor(guilds, guildShardKeyProvider)
-	userClientProvider := rdbms.NewShardingDefaultClientProvider(users, userShardKeyProvider)
-	guildClientProvider := rdbms.NewShardingDefaultClientProvider(guilds, guildShardKeyProvider)
+	userTransactor := gotx.NewShardingRdbmsTransactor(users, userShardKeyProvider)
+	guildTransactor := gotx.NewShardingRdbmsTransactor(guilds, guildShardKeyProvider)
+	userClientProvider := gotx.NewShardingRdbmsClientProvider(users, userShardKeyProvider)
+	guildClientProvider := gotx.NewShardingRdbmsClientProvider(guilds, guildShardKeyProvider)
 	if err := createShardingTable(ctx, userCons, "user1"); err != nil {
 		t.Error(err)
 		return
@@ -90,10 +88,10 @@ func TestShardingRollbackOnError(t *testing.T) {
 
 	ctx := context.WithValue(context.WithValue(context.Background(), shardKeyUser, "user1"), shardKeyGuild, "guild1")
 	users, guilds, userCons, guildCons := newShardingConnection()
-	userTransactor := rdbms.NewShardingTransactor(users, userShardKeyProvider)
-	guildTransactor := rdbms.NewShardingTransactor(guilds, guildShardKeyProvider)
-	userClientProvider := rdbms.NewShardingDefaultClientProvider(users, userShardKeyProvider)
-	guildClientProvider := rdbms.NewShardingDefaultClientProvider(guilds, guildShardKeyProvider)
+	userTransactor := gotx.NewShardingRdbmsTransactor(users, userShardKeyProvider)
+	guildTransactor := gotx.NewShardingRdbmsTransactor(guilds, guildShardKeyProvider)
+	userClientProvider := gotx.NewShardingRdbmsClientProvider(users, userShardKeyProvider)
+	guildClientProvider := gotx.NewShardingRdbmsClientProvider(guilds, guildShardKeyProvider)
 	if err := createShardingTable(ctx, userCons, "user1"); err != nil {
 		t.Error(err)
 		return
@@ -126,10 +124,10 @@ func TestShardingRollbackOption(t *testing.T) {
 
 	ctx := context.WithValue(context.WithValue(context.Background(), shardKeyUser, "user1"), shardKeyGuild, "guild1")
 	users, guilds, userCons, guildCons := newShardingConnection()
-	userTransactor := rdbms.NewShardingTransactor(users, userShardKeyProvider)
-	guildTransactor := rdbms.NewShardingTransactor(guilds, guildShardKeyProvider)
-	userClientProvider := rdbms.NewShardingDefaultClientProvider(users, userShardKeyProvider)
-	guildClientProvider := rdbms.NewShardingDefaultClientProvider(guilds, guildShardKeyProvider)
+	userTransactor := gotx.NewShardingRdbmsTransactor(users, userShardKeyProvider)
+	guildTransactor := gotx.NewShardingRdbmsTransactor(guilds, guildShardKeyProvider)
+	userClientProvider := gotx.NewShardingRdbmsClientProvider(users, userShardKeyProvider)
+	guildClientProvider := gotx.NewShardingRdbmsClientProvider(guilds, guildShardKeyProvider)
 	if err := createShardingTable(ctx, userCons, "user1"); err != nil {
 		t.Error(err)
 		return
@@ -162,10 +160,10 @@ func TestShardingReadOnlyOption(t *testing.T) {
 
 	ctx := context.WithValue(context.WithValue(context.Background(), shardKeyUser, "user1"), shardKeyGuild, "guild1")
 	users, guilds, userCons, guildCons := newShardingConnection()
-	userTransactor := rdbms.NewShardingTransactor(users, userShardKeyProvider)
-	guildTransactor := rdbms.NewShardingTransactor(guilds, guildShardKeyProvider)
-	userClientProvider := rdbms.NewShardingDefaultClientProvider(users, userShardKeyProvider)
-	guildClientProvider := rdbms.NewShardingDefaultClientProvider(guilds, guildShardKeyProvider)
+	userTransactor := gotx.NewShardingRdbmsTransactor(users, userShardKeyProvider)
+	guildTransactor := gotx.NewShardingRdbmsTransactor(guilds, guildShardKeyProvider)
+	userClientProvider := gotx.NewShardingRdbmsClientProvider(users, userShardKeyProvider)
+	guildClientProvider := gotx.NewShardingRdbmsClientProvider(guilds, guildShardKeyProvider)
 	if err := createShardingTable(ctx, userCons, "user1"); err != nil {
 		t.Error(err)
 		return
