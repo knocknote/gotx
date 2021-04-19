@@ -23,16 +23,8 @@ I created this library from the desire to do simple coding by providing a `Trans
 ## Installation
 
 ```sh
-go get github.com/knocknote/gotx@develop 
+go get github.com/knocknote/gotx
 ```
-
-The standard library only supports RDBMS.  
-Install additional libraries depending on the data source you want to use.
-
-| DataSource | Command |
-|--------|--------|
-| Google Cloud Spanner | go get github.com/knocknote/gotx/spanner@develop |
-| Redis | go get github.com/knocknote/gotx/redis@develop |
 
 ## API
 
@@ -164,8 +156,6 @@ import (
 
   "cloud.google.com/go/spanner"
   gotx "github.com/knocknote/gotx/spanner"
-
-  _ "github.com/lib/pq"
 )
 
 func DependencyInjection() {
