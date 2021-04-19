@@ -56,21 +56,21 @@ type Client interface {
 	PartitionedUpdateWithOptions(ctx context.Context, statement spanner.Statement, options spanner.QueryOptions) (int64, error)
 }
 
-type DefaultTxClient struct {
+type DefaultClient struct {
 	spannerClient *spanner.Client
 	txRW          *spanner.ReadWriteTransaction
 	txRO          *spanner.ReadOnlyTransaction
 }
 
-func NewDefaultTxClient(client *spanner.Client, rw *spanner.ReadWriteTransaction, ro *spanner.ReadOnlyTransaction) *DefaultTxClient {
-	return &DefaultTxClient{
+func NewDefaultClient(client *spanner.Client, rw *spanner.ReadWriteTransaction, ro *spanner.ReadOnlyTransaction) Client {
+	return &DefaultClient{
 		spannerClient: client,
 		txRW:          rw,
 		txRO:          ro,
 	}
 }
 
-func (e *DefaultTxClient) ApplyOrBufferWrite(ctx context.Context, data ...*spanner.Mutation) error {
+func (e *DefaultClient) ApplyOrBufferWrite(ctx context.Context, data ...*spanner.Mutation) error {
 	if e.isInReadWriteTransaction() {
 		return e.txRW.BufferWrite(data)
 	}
@@ -81,28 +81,28 @@ func (e *DefaultTxClient) ApplyOrBufferWrite(ctx context.Context, data ...*spann
 	return err
 }
 
-func (e *DefaultTxClient) Update(ctx context.Context, stmt spanner.Statement) (int64, error) {
+func (e *DefaultClient) Update(ctx context.Context, stmt spanner.Statement) (int64, error) {
 	if e.isInReadWriteTransaction() {
 		return e.txRW.Update(ctx, stmt)
 	}
 	return -1, errors.New("read write transaction is required to use statement")
 }
 
-func (e *DefaultTxClient) UpdateWithOption(ctx context.Context, stmt spanner.Statement, opts spanner.QueryOptions) (int64, error) {
+func (e *DefaultClient) UpdateWithOption(ctx context.Context, stmt spanner.Statement, opts spanner.QueryOptions) (int64, error) {
 	if e.isInReadWriteTransaction() {
 		return e.txRW.UpdateWithOptions(ctx, stmt, opts)
 	}
 	return -1, errors.New("read write transaction is required to use statement")
 }
 
-func (e *DefaultTxClient) BatchUpdate(ctx context.Context, stmts []spanner.Statement) ([]int64, error) {
+func (e *DefaultClient) BatchUpdate(ctx context.Context, stmts []spanner.Statement) ([]int64, error) {
 	if e.isInReadWriteTransaction() {
 		return e.txRW.BatchUpdate(ctx, stmts)
 	}
 	return nil, errors.New("read write transaction is required to use statement")
 }
 
-func (e *DefaultTxClient) PartitionedUpdate(ctx context.Context, stmt spanner.Statement) (int64, error) {
+func (e *DefaultClient) PartitionedUpdate(ctx context.Context, stmt spanner.Statement) (int64, error) {
 	if e.isInReadWriteTransaction() {
 		//spanner doesn't support nested transaction
 		return -1, errors.New("partitioned update is unsupported in read write transaction")
@@ -110,7 +110,7 @@ func (e *DefaultTxClient) PartitionedUpdate(ctx context.Context, stmt spanner.St
 	return e.spannerClient.PartitionedUpdate(ctx, stmt)
 }
 
-func (e *DefaultTxClient) PartitionedUpdateWithOptions(ctx context.Context, stmt spanner.Statement, options spanner.QueryOptions) (int64, error) {
+func (e *DefaultClient) PartitionedUpdateWithOptions(ctx context.Context, stmt spanner.Statement, options spanner.QueryOptions) (int64, error) {
 	if e.isInReadWriteTransaction() {
 		//spanner doesn't support nested transaction
 		return -1, errors.New("partitioned update is unsupported in read write transaction")
@@ -118,7 +118,7 @@ func (e *DefaultTxClient) PartitionedUpdateWithOptions(ctx context.Context, stmt
 	return e.spannerClient.PartitionedUpdateWithOptions(ctx, stmt, options)
 }
 
-func (e *DefaultTxClient) Reader(_ context.Context) Reader {
+func (e *DefaultClient) Reader(_ context.Context) Reader {
 	if e.isInReadWriteTransaction() {
 		return e.txRW
 	}
@@ -128,11 +128,11 @@ func (e *DefaultTxClient) Reader(_ context.Context) Reader {
 	return e.spannerClient.Single()
 }
 
-func (e *DefaultTxClient) isInReadWriteTransaction() bool {
+func (e *DefaultClient) isInReadWriteTransaction() bool {
 	return e.txRW != nil
 }
 
-func (e *DefaultTxClient) isInReadOnlyTransaction() bool {
+func (e *DefaultClient) isInReadOnlyTransaction() bool {
 	return e.txRO != nil
 }
 
@@ -153,7 +153,7 @@ func NewDefaultClientProvider(connectionProvider ConnectionProvider) ClientProvi
 func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
 	transaction := ctx.Value(currentTransactionKey)
 	if transaction == nil {
-		return NewDefaultTxClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
+		return NewDefaultClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
 	}
 	return transaction.(Client)
 }
@@ -161,13 +161,30 @@ func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
 // ------------------------------------
 // Transactor
 // ------------------------------------
+
+type TransactionOptions spanner.TransactionOptions
+
+func (o TransactionOptions) Apply(c *gotx.Config) {
+	c.VendorOption = spanner.TransactionOptions(o)
+}
+
+func OptionTransactionOptions(options spanner.TransactionOptions) TransactionOptions {
+	return TransactionOptions(options)
+}
+
 type Transactor struct {
 	provider ConnectionProvider
+	onCommit func(commitResponse *spanner.CommitResponse)
 }
 
 func NewTransactor(provider ConnectionProvider) gotx.Transactor {
+	return NewTransactorWithOnCommit(provider, nil)
+}
+
+func NewTransactorWithOnCommit(provider ConnectionProvider, onCommit func(commitResponse *spanner.CommitResponse)) gotx.Transactor {
 	return &Transactor{
 		provider: provider,
+		onCommit: onCommit,
 	}
 }
 
@@ -183,6 +200,7 @@ var rollbackOnly = errors.New("rollback only transaction")
 func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, options ...gotx.Option) error {
 
 	config := gotx.NewDefaultConfig()
+	config.VendorOption = spanner.TransactionOptions{}
 	for _, opt := range options {
 		opt.Apply(&config)
 	}
@@ -191,11 +209,11 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 	if config.ReadOnly {
 		txn := spannerClient.ReadOnlyTransaction()
 		defer txn.Close()
-		executor := NewDefaultTxClient(spannerClient, nil, txn)
+		executor := NewDefaultClient(spannerClient, nil, txn)
 		return fn(context.WithValue(ctx, currentTransactionKey, executor))
 	}
-	_, err := spannerClient.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		executor := NewDefaultTxClient(spannerClient, txn, nil)
+	commitResponse, err := spannerClient.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		executor := NewDefaultClient(spannerClient, txn, nil)
 		err := fn(context.WithValue(ctx, currentTransactionKey, executor))
 		if err != nil {
 			return err
@@ -204,10 +222,14 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 			return rollbackOnly
 		}
 		return nil
-	})
+	}, config.VendorOption.(spanner.TransactionOptions))
 	// rollback only transaction
 	if err != nil && errors.Is(err, rollbackOnly) {
 		return nil
+	}
+	// commit hook
+	if err == nil && t.onCommit != nil {
+		t.onCommit(&commitResponse)
 	}
 	return err
 }

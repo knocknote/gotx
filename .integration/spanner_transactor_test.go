@@ -60,8 +60,9 @@ func TestSpannerCommit(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
-	transactor := gotxspanner.NewTransactor(connectionProvider)
+	transactor := gotxspanner.NewTransactorWithOnCommit(connectionProvider, func(commitResponse *spanner.CommitResponse) {
+		t.Log(commitResponse.CommitTs)
+	})
 	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 	err = transactor.Required(ctx, func(ctx context.Context) error {
 		client := clientProvider.CurrentClient(ctx)
@@ -69,7 +70,9 @@ func TestSpannerCommit(t *testing.T) {
 			spanner.InsertOrUpdate("test", []string{"id"}, []interface{}{100}),
 		}
 		return client.ApplyOrBufferWrite(ctx, m...)
-	})
+	}, gotxspanner.OptionTransactionOptions(spanner.TransactionOptions{
+		CommitOptions: spanner.CommitOptions{ReturnCommitStats: true},
+	}))
 	if err != nil {
 		t.Error(err)
 		return
