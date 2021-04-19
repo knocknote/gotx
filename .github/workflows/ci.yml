@@ -8,8 +8,8 @@ on:
   pull_request:
 
 jobs:
-  base-test:
-    name: base test
+  unit-test:
+    name: unit test
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
@@ -32,7 +32,7 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.34.1
-          args: --timeout=5m0s
+          args: --timeout=5m0s ./...
       - name: install deps
         run: go mod download
       - name: build
