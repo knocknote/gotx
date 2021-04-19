@@ -6,6 +6,19 @@ services:
     ports:
       - "9020:9020"
       - "9010:9010"
+  spanner-init:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    networks:
+      - scarlet
+    links:
+      - spanner
+    command: >
+      bash -c 'gcloud config configurations create emulator &&
+              gcloud config set auth/disable_credentials true &&
+              gcloud config set project local-project &&
+              gcloud config set api_endpoint_overrides/spanner http://spanner:9020/ &&
+              gcloud config set auth/disable_credentials true &&
+              gcloud spanner instances create test-instance --config=emulator-config --description=Emulator --nodes=1'
   redis-shard-1:
     image: redis:5-alpine
     ports:
