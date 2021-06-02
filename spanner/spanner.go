@@ -201,15 +201,19 @@ type TransactorConfig struct {
 }
 
 func NewTransactor(clientProvider ConnectionProvider) gotx.Transactor {
-	return NewTransactorWithConfig(clientProvider, TransactorConfig{
-		ClientFactory: &DefaultClientFactory{},
-	})
+	return NewTransactorWithConfig(clientProvider, TransactorConfig{})
 }
 
 func NewTransactorWithConfig(clientProvider ConnectionProvider, config TransactorConfig) gotx.Transactor {
+	var factory ClientFactory
+	if config.ClientFactory == nil {
+		factory = &DefaultClientFactory{}
+	} else {
+		factory = config.ClientFactory
+	}
 	return &Transactor{
 		clientProvider: clientProvider,
-		clientFactory:  config.ClientFactory,
+		clientFactory:  factory,
 		onCommit:       config.OnCommit,
 	}
 }
