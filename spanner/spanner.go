@@ -155,7 +155,7 @@ func NewDefaultClientProvider(connectionProvider ConnectionProvider, clientFacto
 func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
 	transaction := ctx.Value(currentTransactionKey)
 	if transaction == nil {
-		return NewDefaultClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
+		return p.clientFactory.NewClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
 	}
 	return transaction.(Client)
 }
