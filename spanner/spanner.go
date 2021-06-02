@@ -142,11 +142,13 @@ type ClientProvider interface {
 
 type DefaultClientProvider struct {
 	connectionProvider ConnectionProvider
+	clientFactory      ClientFactory
 }
 
-func NewDefaultClientProvider(connectionProvider ConnectionProvider) ClientProvider {
+func NewDefaultClientProvider(connectionProvider ConnectionProvider, clientFactory ClientFactory) ClientProvider {
 	return &DefaultClientProvider{
 		connectionProvider: connectionProvider,
+		clientFactory:      clientFactory,
 	}
 }
 
@@ -156,6 +158,17 @@ func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
 		return NewDefaultClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
 	}
 	return transaction.(Client)
+}
+
+type ClientFactory interface {
+	NewClient(client *spanner.Client, rw *spanner.ReadWriteTransaction, ro *spanner.ReadOnlyTransaction) Client
+}
+
+type DefaultClientFactory struct {
+}
+
+func (c *DefaultClientFactory) NewClient(client *spanner.Client, rw *spanner.ReadWriteTransaction, ro *spanner.ReadOnlyTransaction) Client {
+	return NewDefaultClient(client, rw, ro)
 }
 
 // ------------------------------------
@@ -173,18 +186,20 @@ func OptionTransactionOptions(options spanner.TransactionOptions) TransactionOpt
 }
 
 type Transactor struct {
-	provider ConnectionProvider
-	onCommit func(commitResponse *spanner.CommitResponse)
+	clientProvider ConnectionProvider
+	clientFactory  ClientFactory
+	onCommit       func(commitResponse *spanner.CommitResponse)
 }
 
-func NewTransactor(provider ConnectionProvider) gotx.Transactor {
-	return NewTransactorWithOnCommit(provider, nil)
+func NewTransactor(clientProvider ConnectionProvider, clientFactory ClientFactory) gotx.Transactor {
+	return NewTransactorWithOnCommit(clientProvider, clientFactory, nil)
 }
 
-func NewTransactorWithOnCommit(provider ConnectionProvider, onCommit func(commitResponse *spanner.CommitResponse)) gotx.Transactor {
+func NewTransactorWithOnCommit(clientProvider ConnectionProvider, clientFactory ClientFactory, onCommit func(commitResponse *spanner.CommitResponse)) gotx.Transactor {
 	return &Transactor{
-		provider: provider,
-		onCommit: onCommit,
+		clientProvider: clientProvider,
+		clientFactory:  clientFactory,
+		onCommit:       onCommit,
 	}
 }
 
@@ -205,15 +220,15 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 		opt.Apply(&config)
 	}
 
-	spannerClient := t.provider.CurrentConnection(ctx)
+	spannerClient := t.clientProvider.CurrentConnection(ctx)
 	if config.ReadOnly {
 		txn := spannerClient.ReadOnlyTransaction()
 		defer txn.Close()
-		executor := NewDefaultClient(spannerClient, nil, txn)
+		executor := t.clientFactory.NewClient(spannerClient, nil, txn)
 		return fn(context.WithValue(ctx, currentTransactionKey, executor))
 	}
 	commitResponse, err := spannerClient.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		executor := NewDefaultClient(spannerClient, txn, nil)
+		executor := t.clientFactory.NewClient(spannerClient, txn, nil)
 		err := fn(context.WithValue(ctx, currentTransactionKey, executor))
 		if err != nil {
 			return err
