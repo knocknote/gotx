@@ -77,15 +77,14 @@ func TestSpannerCommit(t *testing.T) {
 
 	ctx := context.Background()
 	connectionProvider, err := newSpannerConnection("local-test1")
-	clientFactory := &gotxspanner.DefaultClientFactory{}
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	transactor := gotxspanner.NewTransactorWithOnCommit(connectionProvider, clientFactory, func(commitResponse *spanner.CommitResponse) {
+	transactor := gotxspanner.NewTransactorWithOnCommit(connectionProvider, func(commitResponse *spanner.CommitResponse) {
 		t.Log(commitResponse.CommitTs)
 	})
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 	err = transactor.Required(ctx, func(ctx context.Context) error {
 		client := clientProvider.CurrentClient(ctx)
 		m := []*spanner.Mutation{
@@ -128,9 +127,8 @@ func TestSpannerCommitBatchStatement(t *testing.T) {
 		return
 	}
 
-	clientFactory := &gotxspanner.DefaultClientFactory{}
-	transactor := gotxspanner.NewTransactor(connectionProvider, clientFactory)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id >= 100"}
 	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
@@ -171,9 +169,8 @@ func TestSpannerCommitStatement(t *testing.T) {
 		return
 	}
 
-	clientFactory := &gotxspanner.DefaultClientFactory{}
-	transactor := gotxspanner.NewTransactor(connectionProvider, clientFactory)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id = 100"}
 	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
@@ -211,8 +208,8 @@ func TestSpannerCommitStatementAndMutation(t *testing.T) {
 	}
 
 	clientFactory := &mutationHookClientFactory{}
-	transactor := gotxspanner.NewTransactor(connectionProvider, clientFactory)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactorWithClientFactory(connectionProvider, clientFactory)
+	clientProvider := gotxspanner.NewDefaultClientProviderWithFactory(connectionProvider, clientFactory)
 
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id >= 100"}
 	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
@@ -282,8 +279,7 @@ func TestSpannerCommitApply(t *testing.T) {
 		return
 	}
 
-	clientFactory := &gotxspanner.DefaultClientFactory{}
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id >= 100"}
 	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
@@ -324,9 +320,8 @@ func TestSpannerRollback(t *testing.T) {
 		return
 	}
 
-	clientFactory := &gotxspanner.DefaultClientFactory{}
-	transactor := gotxspanner.NewTransactor(connectionProvider, clientFactory)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 	err = transactor.Required(ctx, func(ctx context.Context) error {
 		client := clientProvider.CurrentClient(ctx)
 		m := []*spanner.Mutation{
@@ -359,9 +354,8 @@ func TestSpannerRollbackStatement(t *testing.T) {
 		return
 	}
 
-	clientFactory := &gotxspanner.DefaultClientFactory{}
-	transactor := gotxspanner.NewTransactor(connectionProvider, clientFactory)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id = 100"}
 	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
 	var count int64
@@ -405,9 +399,8 @@ func TestSpannerRollbackOption(t *testing.T) {
 		return
 	}
 
-	clientFactory := &gotxspanner.DefaultClientFactory{}
-	transactor := gotxspanner.NewTransactor(connectionProvider, clientFactory)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 	err = transactor.Required(ctx, func(ctx context.Context) error {
 		client := clientProvider.CurrentClient(ctx)
 		m := []*spanner.Mutation{
@@ -440,9 +433,8 @@ func TestSpannerReadonlyOption(t *testing.T) {
 		return
 	}
 
-	clientFactory := &gotxspanner.DefaultClientFactory{}
-	transactor := gotxspanner.NewTransactor(connectionProvider, clientFactory)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 	err = transactor.Required(ctx, func(ctx context.Context) error {
 		client := clientProvider.CurrentClient(ctx)
 		m := []*spanner.Mutation{
@@ -466,9 +458,8 @@ func TestSpannerErrorOnReadOnlyTransaction(t *testing.T) {
 		return
 	}
 
-	clientFactory := &gotxspanner.DefaultClientFactory{}
-	transactor := gotxspanner.NewTransactor(connectionProvider, clientFactory)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id = 100"}
 	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
@@ -499,9 +490,8 @@ func TestSpannerOnReadOnlyTransaction(t *testing.T) {
 		return
 	}
 
-	clientFactory := &gotxspanner.DefaultClientFactory{}
-	transactor := gotxspanner.NewTransactor(connectionProvider, clientFactory)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactor(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id = 102"}
 	_, err = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)

@@ -145,7 +145,11 @@ type DefaultClientProvider struct {
 	clientFactory      ClientFactory
 }
 
-func NewDefaultClientProvider(connectionProvider ConnectionProvider, clientFactory ClientFactory) ClientProvider {
+func NewDefaultClientProvider(connectionProvider ConnectionProvider) ClientProvider {
+	return NewDefaultClientProviderWithFactory(connectionProvider, &DefaultClientFactory{})
+}
+
+func NewDefaultClientProviderWithFactory(connectionProvider ConnectionProvider, clientFactory ClientFactory) ClientProvider {
 	return &DefaultClientProvider{
 		connectionProvider: connectionProvider,
 		clientFactory:      clientFactory,
@@ -191,11 +195,19 @@ type Transactor struct {
 	onCommit       func(commitResponse *spanner.CommitResponse)
 }
 
-func NewTransactor(clientProvider ConnectionProvider, clientFactory ClientFactory) gotx.Transactor {
-	return NewTransactorWithOnCommit(clientProvider, clientFactory, nil)
+func NewTransactor(clientProvider ConnectionProvider) gotx.Transactor {
+	return NewTransactorWithClientFactory(clientProvider, &DefaultClientFactory{})
 }
 
-func NewTransactorWithOnCommit(clientProvider ConnectionProvider, clientFactory ClientFactory, onCommit func(commitResponse *spanner.CommitResponse)) gotx.Transactor {
+func NewTransactorWithClientFactory(clientProvider ConnectionProvider, clientFactory ClientFactory) gotx.Transactor {
+	return NewTransactorWithOnCommitAndClientFactory(clientProvider, clientFactory, nil)
+}
+
+func NewTransactorWithOnCommit(clientProvider ConnectionProvider, onCommit func(commitResponse *spanner.CommitResponse)) gotx.Transactor {
+	return NewTransactorWithOnCommitAndClientFactory(clientProvider, &DefaultClientFactory{}, onCommit)
+}
+
+func NewTransactorWithOnCommitAndClientFactory(clientProvider ConnectionProvider, clientFactory ClientFactory, onCommit func(commitResponse *spanner.CommitResponse)) gotx.Transactor {
 	return &Transactor{
 		clientProvider: clientProvider,
 		clientFactory:  clientFactory,
