@@ -195,23 +195,22 @@ type Transactor struct {
 	onCommit       func(commitResponse *spanner.CommitResponse)
 }
 
+type TransactorConfig struct {
+	ClientFactory ClientFactory
+	OnCommit      func(commitResponse *spanner.CommitResponse)
+}
+
 func NewTransactor(clientProvider ConnectionProvider) gotx.Transactor {
-	return NewTransactorWithClientFactory(clientProvider, &DefaultClientFactory{})
+	return NewTransactorWithConfig(clientProvider, TransactorConfig{
+		ClientFactory: &DefaultClientFactory{},
+	})
 }
 
-func NewTransactorWithClientFactory(clientProvider ConnectionProvider, clientFactory ClientFactory) gotx.Transactor {
-	return NewTransactorWithOnCommitAndClientFactory(clientProvider, clientFactory, nil)
-}
-
-func NewTransactorWithOnCommit(clientProvider ConnectionProvider, onCommit func(commitResponse *spanner.CommitResponse)) gotx.Transactor {
-	return NewTransactorWithOnCommitAndClientFactory(clientProvider, &DefaultClientFactory{}, onCommit)
-}
-
-func NewTransactorWithOnCommitAndClientFactory(clientProvider ConnectionProvider, clientFactory ClientFactory, onCommit func(commitResponse *spanner.CommitResponse)) gotx.Transactor {
+func NewTransactorWithConfig(clientProvider ConnectionProvider, config TransactorConfig) gotx.Transactor {
 	return &Transactor{
 		clientProvider: clientProvider,
-		clientFactory:  clientFactory,
-		onCommit:       onCommit,
+		clientFactory:  config.ClientFactory,
+		onCommit:       config.OnCommit,
 	}
 }
 

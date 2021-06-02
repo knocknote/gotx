@@ -81,8 +81,10 @@ func TestSpannerCommit(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	transactor := gotxspanner.NewTransactorWithOnCommit(connectionProvider, func(commitResponse *spanner.CommitResponse) {
-		t.Log(commitResponse.CommitTs)
+	transactor := gotxspanner.NewTransactorWithConfig(connectionProvider, gotxspanner.TransactorConfig{
+		OnCommit: func(commitResponse *spanner.CommitResponse) {
+			t.Log(commitResponse.CommitTs)
+		},
 	})
 	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 	err = transactor.Required(ctx, func(ctx context.Context) error {
@@ -208,7 +210,9 @@ func TestSpannerCommitStatementAndMutation(t *testing.T) {
 	}
 
 	clientFactory := &mutationHookClientFactory{}
-	transactor := gotxspanner.NewTransactorWithClientFactory(connectionProvider, clientFactory)
+	transactor := gotxspanner.NewTransactorWithConfig(connectionProvider, gotxspanner.TransactorConfig{
+		ClientFactory: clientFactory,
+	})
 	clientProvider := gotxspanner.NewDefaultClientProviderWithFactory(connectionProvider, clientFactory)
 
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id >= 100"}
