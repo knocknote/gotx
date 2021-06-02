@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -18,6 +19,28 @@ import (
 	gotxspanner "github.com/knocknote/gotx/spanner"
 	adminpb "google.golang.org/genproto/googleapis/spanner/admin/database/v1"
 )
+
+type mutationHookClient struct {
+	gotxspanner.Client
+	Tables []string
+}
+
+func (c *mutationHookClient) ApplyOrBufferWrite(ctx context.Context, data ...*spanner.Mutation) error {
+	for _, m := range data {
+		c.Tables = append(c.Tables, reflect.ValueOf(m).Elem().FieldByName("table").String())
+	}
+	return c.Client.ApplyOrBufferWrite(ctx, data...)
+}
+
+type mutationHookClientFactory struct {
+}
+
+func (c *mutationHookClientFactory) NewClient(client *spanner.Client, rw *spanner.ReadWriteTransaction, ro *spanner.ReadOnlyTransaction) gotxspanner.Client {
+	return &mutationHookClient{
+		Client: gotxspanner.NewDefaultClient(client, rw, ro),
+		Tables: []string{},
+	}
+}
 
 func newSpannerConnection(db string) (gotxspanner.ConnectionProvider, error) {
 	parent := "projects/local-project/instances/test-instance"
@@ -58,8 +81,10 @@ func TestSpannerCommit(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	transactor := gotxspanner.NewTransactorWithOnCommit(connectionProvider, func(commitResponse *spanner.CommitResponse) {
-		t.Log(commitResponse.CommitTs)
+	transactor := gotxspanner.NewTransactorWithConfig(connectionProvider, gotxspanner.TransactorConfig{
+		OnCommit: func(commitResponse *spanner.CommitResponse) {
+			t.Log(commitResponse.CommitTs)
+		},
 	})
 	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
 	err = transactor.Required(ctx, func(ctx context.Context) error {
@@ -184,8 +209,11 @@ func TestSpannerCommitStatementAndMutation(t *testing.T) {
 		return
 	}
 
-	transactor := gotxspanner.NewTransactor(connectionProvider)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+	clientFactory := &mutationHookClientFactory{}
+	transactor := gotxspanner.NewTransactorWithConfig(connectionProvider, gotxspanner.TransactorConfig{
+		ClientFactory: clientFactory,
+	})
+	clientProvider := gotxspanner.NewDefaultClientProviderWithFactory(connectionProvider, clientFactory)
 
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id >= 100"}
 	_, _ = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
@@ -204,7 +232,11 @@ func TestSpannerCommitStatementAndMutation(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		return client.ApplyOrBufferWrite(ctx, m...)
+		err = client.ApplyOrBufferWrite(ctx, m...)
+		if len(client.(*mutationHookClient).Tables) != 1 {
+			t.Error("must contain table")
+		}
+		return err
 	})
 	if err != nil {
 		t.Error(err)
@@ -240,8 +272,6 @@ func TestSpannerCommitStatementAndMutation(t *testing.T) {
 		t.Errorf("id must be 101")
 		return
 	}
-
-	fmt.Println(err)
 }
 
 func TestSpannerCommitApply(t *testing.T) {
