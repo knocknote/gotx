@@ -14,27 +14,6 @@ type contextCurrentTransactionKey string
 const currentTransactionKey contextCurrentTransactionKey = "current_spanner_transaction"
 
 // ------------------------------------
-// Connection
-// ------------------------------------
-type ConnectionProvider interface {
-	CurrentConnection(ctx context.Context) *spanner.Client
-}
-
-type DefaultConnectionProvider struct {
-	client *spanner.Client
-}
-
-func NewDefaultConnectionProvider(client *spanner.Client) ConnectionProvider {
-	return &DefaultConnectionProvider{
-		client: client,
-	}
-}
-
-func (p *DefaultConnectionProvider) CurrentConnection(_ context.Context) *spanner.Client {
-	return p.client
-}
-
-// ------------------------------------
 // Client
 // ------------------------------------
 type Reader interface {
@@ -141,25 +120,23 @@ type ClientProvider interface {
 }
 
 type DefaultClientProvider struct {
-	connectionProvider ConnectionProvider
-	clientFactory      ClientFactory
+	singleClient Client
 }
 
-func NewDefaultClientProvider(connectionProvider ConnectionProvider) ClientProvider {
-	return NewDefaultClientProviderWithFactory(connectionProvider, &DefaultClientFactory{})
+func NewDefaultClientProvider(client *spanner.Client) ClientProvider {
+	return NewDefaultClientProviderWithFactory(client, &DefaultClientFactory{})
 }
 
-func NewDefaultClientProviderWithFactory(connectionProvider ConnectionProvider, clientFactory ClientFactory) ClientProvider {
+func NewDefaultClientProviderWithFactory(client *spanner.Client, factory ClientFactory) ClientProvider {
 	return &DefaultClientProvider{
-		connectionProvider: connectionProvider,
-		clientFactory:      clientFactory,
+		singleClient: factory.NewClient(client, nil, nil),
 	}
 }
 
 func (p *DefaultClientProvider) CurrentClient(ctx context.Context) Client {
 	transaction := ctx.Value(currentTransactionKey)
 	if transaction == nil {
-		return p.clientFactory.NewClient(p.connectionProvider.CurrentConnection(ctx), nil, nil)
+		return p.singleClient
 	}
 	return transaction.(Client)
 }
@@ -190,9 +167,9 @@ func OptionTransactionOptions(options spanner.TransactionOptions) TransactionOpt
 }
 
 type Transactor struct {
-	clientProvider ConnectionProvider
-	clientFactory  ClientFactory
-	onCommit       func(commitResponse *spanner.CommitResponse)
+	spannerClient *spanner.Client
+	clientFactory ClientFactory
+	onCommit      func(commitResponse *spanner.CommitResponse)
 }
 
 type TransactorConfig struct {
@@ -200,11 +177,11 @@ type TransactorConfig struct {
 	OnCommit      func(commitResponse *spanner.CommitResponse)
 }
 
-func NewTransactor(clientProvider ConnectionProvider) gotx.Transactor {
-	return NewTransactorWithConfig(clientProvider, TransactorConfig{})
+func NewTransactor(spannerClient *spanner.Client) gotx.Transactor {
+	return NewTransactorWithConfig(spannerClient, TransactorConfig{})
 }
 
-func NewTransactorWithConfig(clientProvider ConnectionProvider, config TransactorConfig) gotx.Transactor {
+func NewTransactorWithConfig(spannerClient *spanner.Client, config TransactorConfig) gotx.Transactor {
 	var factory ClientFactory
 	if config.ClientFactory == nil {
 		factory = &DefaultClientFactory{}
@@ -212,9 +189,9 @@ func NewTransactorWithConfig(clientProvider ConnectionProvider, config Transacto
 		factory = config.ClientFactory
 	}
 	return &Transactor{
-		clientProvider: clientProvider,
-		clientFactory:  factory,
-		onCommit:       config.OnCommit,
+		spannerClient: spannerClient,
+		clientFactory: factory,
+		onCommit:      config.OnCommit,
 	}
 }
 
@@ -235,15 +212,14 @@ func (t *Transactor) RequiresNew(ctx context.Context, fn gotx.DoInTransaction, o
 		opt.Apply(&config)
 	}
 
-	spannerClient := t.clientProvider.CurrentConnection(ctx)
 	if config.ReadOnly {
-		txn := spannerClient.ReadOnlyTransaction()
+		txn := t.spannerClient.ReadOnlyTransaction()
 		defer txn.Close()
-		executor := t.clientFactory.NewClient(spannerClient, nil, txn)
+		executor := t.clientFactory.NewClient(t.spannerClient, nil, txn)
 		return fn(context.WithValue(ctx, currentTransactionKey, executor))
 	}
-	commitResponse, err := spannerClient.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		executor := t.clientFactory.NewClient(spannerClient, txn, nil)
+	commitResponse, err := t.spannerClient.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		executor := t.clientFactory.NewClient(t.spannerClient, txn, nil)
 		err := fn(context.WithValue(ctx, currentTransactionKey, executor))
 		if err != nil {
 			return err

@@ -42,7 +42,7 @@ func (c *mutationHookClientFactory) NewClient(client *spanner.Client, rw *spanne
 	}
 }
 
-func newSpannerConnection(db string) (gotxspanner.ConnectionProvider, error) {
+func newSpannerConnection(db string) (*spanner.Client, error) {
 	parent := "projects/local-project/instances/test-instance"
 
 	ctx := context.Background()
@@ -66,27 +66,23 @@ func newSpannerConnection(db string) (gotxspanner.ConnectionProvider, error) {
 			return nil, err
 		}
 	}
-	connection, err := spanner.NewClient(context.Background(), parent+"/databases/"+db)
-	if err != nil {
-		return nil, err
-	}
-	return gotxspanner.NewDefaultConnectionProvider(connection), nil
+	return spanner.NewClient(context.Background(), parent+"/databases/"+db)
 }
 
 func TestSpannerCommit(t *testing.T) {
 
 	ctx := context.Background()
-	connectionProvider, err := newSpannerConnection("local-test1")
+	connectionPool, err := newSpannerConnection("local-test1")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	transactor := gotxspanner.NewTransactorWithConfig(connectionProvider, gotxspanner.TransactorConfig{
+	transactor := gotxspanner.NewTransactorWithConfig(connectionPool, gotxspanner.TransactorConfig{
 		OnCommit: func(commitResponse *spanner.CommitResponse) {
 			t.Log(commitResponse.CommitTs)
 		},
 	})
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionPool)
 	err = transactor.Required(ctx, func(ctx context.Context) error {
 		client := clientProvider.CurrentClient(ctx)
 		m := []*spanner.Mutation{
@@ -488,14 +484,14 @@ func TestSpannerErrorOnReadOnlyTransaction(t *testing.T) {
 func TestSpannerOnReadOnlyTransaction(t *testing.T) {
 
 	ctx := context.Background()
-	connectionProvider, err := newSpannerConnection("local-test1")
+	connectionPool, err := newSpannerConnection("local-test1")
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	transactor := gotxspanner.NewTransactor(connectionProvider)
-	clientProvider := gotxspanner.NewDefaultClientProvider(connectionProvider)
+	transactor := gotxspanner.NewTransactor(connectionPool)
+	clientProvider := gotxspanner.NewDefaultClientProvider(connectionPool)
 
 	stmt := spanner.Statement{SQL: "DELETE FROM test WHERE id = 102"}
 	_, err = clientProvider.CurrentClient(ctx).PartitionedUpdate(ctx, stmt)
@@ -506,7 +502,7 @@ func TestSpannerOnReadOnlyTransaction(t *testing.T) {
 	m := []*spanner.Mutation{
 		spanner.InsertOrUpdate("test", []string{"id"}, []interface{}{102}),
 	}
-	_, err = connectionProvider.CurrentConnection(ctx).Apply(ctx, m)
+	_, err = connectionPool.Apply(ctx, m)
 	if err != nil {
 		t.Error(err)
 		return
